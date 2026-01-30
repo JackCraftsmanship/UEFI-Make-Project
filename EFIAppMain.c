@@ -10,6 +10,50 @@
 #define MAX_BUFFER_SIZE 256
 #define TYPOLOCATION L">> "
 
+
+/** SubString, Copy substring Start to End-of-String and paste into Destiantion
+ * @param SourceString String of Origin source
+ * @param DestinationString String for paste
+ * @param Start starting position (contain)
+ * @return EFI_ERROR code, when Sucess, return EFI_SUCCESS
+*/
+EFI_STATUS SubStr(CHAR16 *SourceString, CHAR16 *DestinationString, UINTN Start) {
+    UINTN F_size = StrSize(SourceString);
+
+    if(SourceString[0] == L'\0') return EFI_INVALID_PARAMETER;
+
+    else if(Start >= (F_size)) return EFI_BAD_BUFFER_SIZE;
+
+    for(INTN i = Start; i <= F_size; i++) {
+        DestinationString[i - Start] = SourceString[i];
+    }
+    return EFI_SUCCESS;
+}
+
+/** SubString, Copy substring Start to End and paste into Destiantion
+ * @param SourceString String of Origin source
+ * @param DestinationString String for paste
+ * @param Start starting position (contain)
+ * @param End end position (contain)
+ * @return EFI_ERROR code, when Sucess, return EFI_SUCCESS
+*/
+EFI_STATUS SubnStr(CHAR16 *SourceString, CHAR16 *DestinationString, UINTN Start, UINTN End) {
+    UINTN F_size = StrSize(SourceString);
+    UINTN D_size = StrSize(DestinationString);
+
+    if(SourceString[0] == L'\0') return EFI_INVALID_PARAMETER;
+
+    if(End < Start) return EFI_INVALID_PARAMETER;
+    else if(Start >= (F_size)) return EFI_BAD_BUFFER_SIZE;
+    else if(End >= (F_size)) return EFI_BAD_BUFFER_SIZE;
+    if((End - Start + 1) > D_size) return EFI_BUFFER_TOO_SMALL;
+
+    for(INTN i = Start; i <= End; i++) {
+        DestinationString[i - Start] = SourceString[i];
+    }
+    return EFI_SUCCESS;
+}
+
 /**This Object is renamed identifier of _System_Binary_Utility.
  * It will give the interface of Basic Termianl Control in Boot Service
  */
@@ -165,11 +209,26 @@ EFI_STATUS SBU_InitializeLib(IN SBU *This)
     return EFI_SUCCESS;
 }
 
+/**This Object is renamed identifier of _Boot_File_System_Utility.
+ * It will give the interface of File System via EFI Simple File System Protocol
+ */
 typedef struct _Boot_File_System_Utility BFSU;
 
 struct _Boot_File_System_Utility {
 
     CHAR16 *CurrentDirectoryPath;
+
+    EFI_STATUS (*ProtocolHeader)(
+        BFSU *This,
+        EFI_SIMPLE_FILE_SYSTEM_PROTOCOL **FsProtocol,
+        EFI_FILE_PROTOCOL **RootHandle,
+        EFI_STATUS *Status
+    );
+    EFI_STATUS (*FileNameCheck)(
+        BFSU *This,
+        CHAR16 *FileName,
+        UINTN FileNameLength
+    );
 
     EFI_STATUS (*MakeFile)(
         BFSU *This,
@@ -193,9 +252,12 @@ struct _Boot_File_System_Utility {
         BFSU *This,
         CHAR16 *DirectoryPath
     );
+    //when init, attach with this function : BFSU_InitializeLib
 };
 
-EFI_STATUS BFSU_ProtocolHeader(EFI_SIMPLE_FILE_SYSTEM_PROTOCOL **FsProtocol, EFI_FILE_PROTOCOL **RootHandle, EFI_STATUS *Status) {
+///////////////////////////Inline Method//////////////////////////////
+
+EFI_STATUS BFSU_ProtocolHeader(BFSU *This, EFI_SIMPLE_FILE_SYSTEM_PROTOCOL **FsProtocol, EFI_FILE_PROTOCOL **RootHandle, EFI_STATUS *Status) {
     *Status = gBS->LocateProtocol(&gEfiSimpleFileSystemProtocolGuid, NULL, (VOID**)FsProtocol);
     
     if (EFI_ERROR(*Status)) {
@@ -212,6 +274,40 @@ EFI_STATUS BFSU_ProtocolHeader(EFI_SIMPLE_FILE_SYSTEM_PROTOCOL **FsProtocol, EFI
 
     return EFI_SUCCESS;
 }
+
+// fileName Handle Flags
+#define FILE_CHECK_NORMAL 0x00
+#define FILE_CHECK_VOID 0x01
+#define FILE_CHECK_INVAILD_NAME 0x02
+#define FILE_CHECK_TOO_LONG 0x04
+
+EFI_STATUS BFSU_FileNameChecker(BFSU *This, CHAR16 *FileName, UINTN FileNameLength) {
+    if(FileNameLength > 256) return FILE_CHECK_TOO_LONG;
+    if(FileName[0] == L'\0') return FILE_CHECK_VOID;
+    if(FileName[FileNameLength - 1] == L'.') return FILE_CHECK_INVAILD_NAME;
+
+    for(UINTN i = 0; i < FileNameLength; i++) {
+        if(FileName[i] == L'\0') break;
+        else if((UINTN)FileName[i] > 0 && (UINTN)FileName[i] < 32) {
+            return FILE_CHECK_INVAILD_NAME;
+        }
+        switch ((UINTN)FileName[i]) {
+            case L'<':
+            case L'>':
+            case L':':
+            case L'\"':
+            case L'/':
+            case L'\\':
+            case L'|':
+            case L'?':
+            case L'*':
+                return FILE_CHECK_INVAILD_NAME;
+                break;
+        }
+    }
+    return FILE_CHECK_NORMAL;
+}
+
 
 ///////////////////////////file handler//////////////////////////////
 
@@ -267,90 +363,14 @@ EFI_STATUS BFSU_GotoDirectory(BFSU *This, CHAR16 *DirectoryPath);
 
 EFI_STATUS BFSU_InitializeLib(BFSU *This) {
     This->CurrentDirectoryPath = L"~";
+    This->ProtocolHeader = BFSU_ProtocolHeader;
+    This->FileNameCheck = BFSU_FileNameChecker;
     This->MakeFile = BFSU_MakeFile;
 
     return EFI_SUCCESS;
 }
 
-//temporal SubString ASSERT
-#define ASSERT(x) assert(x)
 
-/** SubString, Copy substring Start to End-of-String and paste into Destiantion
- * @param SourceString String of Origin source
- * @param DestinationString String for paste
- * @param Start starting position (contain)
- * @return EFI_ERROR code, when Sucess, return EFI_SUCCESS
-*/
-EFI_STATUS SubStr(CHAR16 *SourceString, CHAR16 *DestinationString, UINTN Start) {
-    UINTN F_size = StrSize(SourceString);
-
-    if(SourceString[0] == L'\0') return EFI_INVALID_PARAMETER;
-
-    else if(Start >= (F_size)) return EFI_BAD_BUFFER_SIZE;
-
-    for(INTN i = Start; i <= F_size; i++) {
-        DestinationString[i - Start] = SourceString[i];
-    }
-    return EFI_SUCCESS;
-}
-
-/** SubString, Copy substring Start to End and paste into Destiantion
- * @param SourceString String of Origin source
- * @param DestinationString String for paste
- * @param Start starting position (contain)
- * @param End end position (contain)
- * @return EFI_ERROR code, when Sucess, return EFI_SUCCESS
-*/
-EFI_STATUS SubnStr(CHAR16 *SourceString, CHAR16 *DestinationString, UINTN Start, UINTN End) {
-    UINTN F_size = StrSize(SourceString);
-    UINTN D_size = StrSize(DestinationString);
-
-    if(SourceString[0] == L'\0') return EFI_INVALID_PARAMETER;
-
-    if(End < Start) return EFI_INVALID_PARAMETER;
-    else if(Start >= (F_size)) return EFI_BAD_BUFFER_SIZE;
-    else if(End >= (F_size)) return EFI_BAD_BUFFER_SIZE;
-    if((End - Start + 1) > D_size) return EFI_BUFFER_TOO_SMALL;
-
-    for(INTN i = Start; i <= End; i++) {
-        DestinationString[i - Start] = SourceString[i];
-    }
-    return EFI_SUCCESS;
-}
-
-
-// fileName Handle Flags
-#define FILE_CHECK_NORMAL 0x00
-#define FILE_CHECK_VOID 0x01
-#define FILE_CHECK_INVAILD_NAME 0x02
-#define FILE_CHECK_TOO_LONG 0x04
-
-EFI_STATUS FileNameChecker(CHAR16 *FileName, UINTN FileNameLength) {
-    if(FileNameLength > 256) return FILE_CHECK_TOO_LONG;
-    if(FileName[0] == L'\0') return FILE_CHECK_VOID;
-    if(FileName[FileNameLength - 1] == L'.') return FILE_CHECK_INVAILD_NAME;
-
-    for(UINTN i = 0; i < FileNameLength; i++) {
-        if(FileName[i] == L'\0') break;
-        else if((UINTN)FileName[i] > 0 && (UINTN)FileName[i] < 32) {
-            return FILE_CHECK_INVAILD_NAME;
-        }
-        switch ((UINTN)FileName[i]) {
-            case L'<':
-            case L'>':
-            case L':':
-            case L'\"':
-            case L'/':
-            case L'\\':
-            case L'|':
-            case L'?':
-            case L'*':
-                return FILE_CHECK_INVAILD_NAME;
-                break;
-        }
-    }
-    return FILE_CHECK_NORMAL;
-}
 
 
 EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* sysTable)
@@ -400,7 +420,7 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* sysTab
                     Print(L"Argument Error While reading the Name.\r\n");
                     goto CAT_END;
                 }
-                Status = FileNameChecker(TempFileNameContainer, StrLen(TempFileNameContainer));
+                Status = FSys.FileNameCheck(TempFileNameContainer, StrLen(TempFileNameContainer));
                 if(Status != 0x00) {
                     Print(L"Invaild Name, Please Try with Different Name.\r\n");
                     goto CAT_END;
