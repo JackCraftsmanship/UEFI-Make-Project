@@ -12,6 +12,8 @@
   bin/StringHandle.h
   bin/SystemBinaryUtility.c
   bin/SystemBinaryUtility.h
+  bin/BootFileSystemUtility.c
+  bin/BootFileSystemUtility.h
 
 [Packages]
   MdePkg/MdePkg.dec
