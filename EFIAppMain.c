@@ -56,30 +56,69 @@ EFI_STATUS SubnStr(CHAR16 *SourceString, CHAR16 *DestinationString, UINTN Start,
 
 /**This Object is renamed identifier of _System_Binary_Utility.
  * It will give the interface of Basic Termianl Control in Boot Service
+ * @note when init, attach with this function : SBU_InitializeLib
  */
 typedef struct _System_Binary_Utility SBU;
 
 struct _System_Binary_Utility {
+
+    /**This is Part of _System_Binary_Utility or SBU, 
+     * Read a Line and save into System Text Buffer.
+     * @param This self
+     * @param buffer System Text Buffer
+     * @param BufferSize Max Buffer Size of System
+     * @return When Error, return EFI_ERROR, when Normal, return EFI_SUCCESS
+     */
     EFI_STATUS (*ReadLine)(
         IN SBU *This,
         OUT CHAR16 *Buffer,
         IN UINTN BufferSize
     );
+
+    /**This is Part of _System_Binary_Utility or SBU, 
+     * Call Reboot Command with Option.
+     * @note This will be change from select-one-at-a-time to Option parsing
+     * @param This self
+     * @param Option option of Reboot command. See EFI Spec docs
+     * @return When Error, return EFI_ERROR, when Normal, return EFI_SUCCESS
+     */
     EFI_STATUS (*RebootCommand)(
         IN SBU *This,
-        IN CHAR16 *Input
+        IN CHAR16 *Option
     );
+
+    /**This is Part of _System_Binary_Utility or SBU, 
+     * Call shutdown Command.
+     * @note This will be add some Options
+     * @param This self
+     * @return When Error, return EFI_ERROR, when Normal, return EFI_SUCCESS
+     */
     EFI_STATUS (*ShutdownCommand)(
         IN SBU *This
     );
+
+    /**This is Part of _System_Binary_Utility or SBU, 
+     * Internal Option Handler for handle Option in command.
+     * @note Currently not vaild
+     * @param This self
+     * @param SourceString Source string that want to parsing option
+     * @param OptionIdentifier Option Identifier
+     * @return When Error, return EFI_ERROR, when Normal, return EFI_SUCCESS
+     */
     EFI_STATUS (*OptionHandler)(
         IN SBU *This,
-        IN CHAR16 *SourceString
+        IN CHAR16 *SourceString,
+        IN CHAR16 *OptionIdentifier
     );
+
+    /**This is Part of _System_Binary_Utility or SBU, 
+     * Who Am I String Printer. Suitable for testing BootService.
+     * @param This self
+     * @return When Error, return EFI_ERROR, when Normal, return EFI_SUCCESS
+     */
     EFI_STATUS (*WhoamI)(
         IN SBU *This
     );
-    //when init, attach with this function : SBU_InitializeLib
 };
 
 EFI_STATUS SBU_Readline(IN SBU *This, OUT CHAR16 *Buffer, IN UINTN BufferSize) {
@@ -165,14 +204,14 @@ EFI_STATUS SBU_Readline(IN SBU *This, OUT CHAR16 *Buffer, IN UINTN BufferSize) {
     return EFI_SUCCESS;
 }
 
-EFI_STATUS SBU_ReBoot(IN SBU *This, IN CHAR16 *Input) {
+EFI_STATUS SBU_ReBoot(IN SBU *This, IN CHAR16 *Option) {
     EFI_RESET_TYPE resetType;
 
-    if(!StrCmp(Input, L"ColdReset")) {
+    if(!StrCmp(Option, L"ColdReset")) {
         Print(L"Reset with device shutdown.");
         resetType = EfiResetCold;
     }
-    else if(!StrCmp(Input, L"NormalReset")) {
+    else if(!StrCmp(Option, L"NormalReset")) {
         Print(L"Reset without device shutdown");
         resetType = EfiResetWarm;
     } else {
@@ -189,8 +228,8 @@ EFI_STATUS SBU_Shutdown(IN SBU *This) {
     return EFI_SUCCESS;
 }
 
-EFI_STATUS SBU_OptionHandler(IN SBU *This, IN CHAR16 *SourceString) {
-
+EFI_STATUS SBU_OptionHandler(IN SBU *This, IN CHAR16 *SourceString, IN CHAR16 *OptionIdentifier) {
+    return EFI_SUCCESS;
 }
 
 EFI_STATUS SBU_WhoamI(IN SBU *This) {
@@ -211,6 +250,7 @@ EFI_STATUS SBU_InitializeLib(IN SBU *This)
 
 /**This Object is renamed identifier of _Boot_File_System_Utility.
  * It will give the interface of File System via EFI Simple File System Protocol
+ * @note when init, attach with this function : BFSU_InitializeLib
  */
 typedef struct _Boot_File_System_Utility BFSU;
 
@@ -252,7 +292,6 @@ struct _Boot_File_System_Utility {
         BFSU *This,
         CHAR16 *DirectoryPath
     );
-    //when init, attach with this function : BFSU_InitializeLib
 };
 
 ///////////////////////////Inline Method//////////////////////////////
@@ -316,7 +355,7 @@ EFI_STATUS BFSU_MakeFile(IN BFSU *This, IN CHAR16 *FileName) {
     EFI_FILE_PROTOCOL *RootHandle = NULL;  //root directory handle
     EFI_STATUS Status;
 
-    BFSU_ProtocolHeader(&FsProtocol, &RootHandle, &Status);
+    BFSU_ProtocolHeader(&This, &FsProtocol, &RootHandle, &Status);
     
     EFI_FILE_PROTOCOL *FileHandle = NULL;  //current file handle
     Status = RootHandle->Open(RootHandle, &FileHandle, FileName, EFI_FILE_MODE_CREATE | EFI_FILE_MODE_WRITE | EFI_FILE_MODE_READ, 0);
@@ -370,8 +409,7 @@ EFI_STATUS BFSU_InitializeLib(BFSU *This) {
     return EFI_SUCCESS;
 }
 
-
-
+//나중에 통합 BootService 쉘을 작성해서 모든 부트서비스 객체들을 붙일 것.
 
 EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* sysTable)
 {
@@ -420,7 +458,7 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* sysTab
                     Print(L"Argument Error While reading the Name.\r\n");
                     goto CAT_END;
                 }
-                Status = FSys.FileNameCheck(TempFileNameContainer, StrLen(TempFileNameContainer));
+                Status = FSys.FileNameCheck(&FSys, TempFileNameContainer, StrLen(TempFileNameContainer));
                 if(Status != 0x00) {
                     Print(L"Invaild Name, Please Try with Different Name.\r\n");
                     goto CAT_END;
