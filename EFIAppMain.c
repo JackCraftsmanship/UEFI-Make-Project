@@ -12,8 +12,7 @@
 
 /**This Object is renamed identifier of _System_Binary_Utility.
  * It will give the interface of Basic Termianl Control in Boot Service
- * @section method method
- * this 
+ * @class
  */
 typedef struct _System_Binary_Utility SBU;
 
