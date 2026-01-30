@@ -5,7 +5,7 @@
 #include <Library/UefiLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 
-/**This Object is renamed identifier of _System_Binary_Utility.
+/** This Object is renamed identifier of _System_Binary_Utility.
  * It will give the interface of Basic Termianl Control in Boot Service
  * @note when init, attach with this function : SBU_InitializeLib
  */
@@ -13,7 +13,7 @@ typedef struct _System_Binary_Utility SBU;
 
 struct _System_Binary_Utility {
 
-    /**This is Part of _System_Binary_Utility or SBU, 
+    /** This is Part of _System_Binary_Utility or SBU, 
      * Read a Line and save into System Text Buffer.
      * @param This self
      * @param buffer System Text Buffer
@@ -26,7 +26,7 @@ struct _System_Binary_Utility {
         IN UINTN BufferSize
     );
 
-    /**This is Part of _System_Binary_Utility or SBU, 
+    /** This is Part of _System_Binary_Utility or SBU, 
      * Call Reboot Command with Option.
      * @note This will be change from select-one-at-a-time to Option parsing
      * @param This self
@@ -38,7 +38,7 @@ struct _System_Binary_Utility {
         IN CHAR16 *Option
     );
 
-    /**This is Part of _System_Binary_Utility or SBU, 
+    /** This is Part of _System_Binary_Utility or SBU, 
      * Call shutdown Command.
      * @note This will be add some Options
      * @param This self
@@ -48,7 +48,7 @@ struct _System_Binary_Utility {
         IN SBU *This
     );
 
-    /**This is Part of _System_Binary_Utility or SBU, 
+    /** This is Part of _System_Binary_Utility or SBU, 
      * Internal Option Handler for handle Option in command.
      * @note Currently not vaild
      * @param This self
@@ -62,7 +62,7 @@ struct _System_Binary_Utility {
         IN CHAR16 *OptionIdentifier
     );
 
-    /**This is Part of _System_Binary_Utility or SBU, 
+    /** This is Part of _System_Binary_Utility or SBU, 
      * Who Am I String Printer. Suitable for testing BootService.
      * @param This self
      * @return When Error, return EFI_ERROR, when Normal, return EFI_SUCCESS

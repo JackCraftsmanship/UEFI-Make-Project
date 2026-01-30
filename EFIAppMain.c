@@ -15,7 +15,7 @@
 #define MAX_BUFFER_SIZE 256
 #define TYPOLOCATION L">> "
 
-/**This Object is renamed identifier of _Boot_File_System_Utility.
+/** This Object is renamed identifier of _Boot_File_System_Utility.
  * It will give the interface of File System via EFI Simple File System Protocol
  * @note when init, attach with this function : BFSU_InitializeLib
  */
