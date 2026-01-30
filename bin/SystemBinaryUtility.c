@@ -86,11 +86,11 @@ EFI_STATUS SBU_Readline(IN SBU *This, OUT CHAR16 *Buffer, IN UINTN BufferSize) {
 EFI_STATUS SBU_ReBoot(IN SBU *This, IN CHAR16 *Option) {
     EFI_RESET_TYPE resetType;
 
-    if(!StrCmp(Option, L"ColdReset")) {
+    if(!StrCmp(Option, L"c") || !StrCmp(Option, L"cold")) {
         Print(L"Reset with device shutdown.");
         resetType = EfiResetCold;
     }
-    else if(!StrCmp(Option, L"NormalReset")) {
+    else if(!StrCmp(Option, L"w") || !StrCmp(Option, L"warm")) {
         Print(L"Reset without device shutdown");
         resetType = EfiResetWarm;
     } else {
@@ -107,7 +107,37 @@ EFI_STATUS SBU_Shutdown(IN SBU *This) {
     return EFI_SUCCESS;
 }
 
-EFI_STATUS SBU_OptionHandler(IN SBU *This, IN CHAR16 *SourceString, IN CHAR16 *OptionIdentifier) {
+EFI_STATUS SBU_OptionHandler(IN SBU *This, IN CHAR16 *SourceString, IN CHAR16 *OptionIdentifier,
+                                OUT CHAR16 **ReturnOptionTokenArray, IN UINTN MaxTokenLength) {
+    INTN SStrSize = StrLen(SourceString);
+    INTN OptStrSize = StrLen(OptionIdentifier);
+    UINTN TemporalStart = 0;
+    UINTN TemporalEnd = 0;
+    EFI_STATUS Status;
+
+    for (INTN i = 0; i <= SStrSize; i++) {
+        if(!StrnCmp((SourceString + i), OptionIdentifier, OptStrSize)) {
+            TemporalStart = i;
+        }
+    }
+
+    TemporalStart += OptStrSize;
+
+    for(INTN j = TemporalStart; j <= (SStrSize - TemporalStart); j++) {
+        if(SourceString[j] == L' ') {
+            if(SourceString[j - 1] == L',') continue;
+            TemporalEnd = j;
+            break;
+        } else if(SourceString[j] == L'\0') {
+            TemporalEnd = j;
+            break;
+        }
+    }
+
+    Status = StrnCatS(ReturnOptionTokenArray, MaxTokenLength, SourceString, TemporalEnd - TemporalStart);
+    Print(L"Dest : %d, MAxTokenLength : %d\r\n", StrLen(ReturnOptionTokenArray), MaxTokenLength);
+    Print(L"Status : %d\r\n", Status);
+    if(EFI_ERROR(Status)) return Status;
     return EFI_SUCCESS;
 }
 
