@@ -14,6 +14,10 @@ typedef struct {
     INTN OptionTokenLength;        //Option Token length
 } OptionFlag;
 
+/** This is Option Container that can be Contain some Option Identifiers and set some rules about Options
+ * @note MaxInputOptionLength will be the Max Option String Length
+ * @note MaxInputArrayLength will be ths Max Option Identifier Input amount
+ */
 typedef struct {
     OptionFlag *OptionArray;        //OptionContainer Array
     UINTN MaxInputOptionLength;      //Maximum Option Length
@@ -68,7 +72,8 @@ struct _System_Binary_Utility {
      * @note Currently not vaild
      * @param This self
      * @param SourceString Source string that want to parsing option
-     * @param OptionIdentifier Option Identifier
+     * @param OptionIdentifier Option Identifier Array, type = OptionFlag
+     * @param OptionIdentifierCount Option Identifier Array Count
      * @param MaxTokenLength The Maximum Length of Token
      * @param ReturnArrayLength The Length of ReturnOptionTokenArray
      * @param ReturnOptionTokenArray Return ALL Option Token that Identified, Return CHAR16 string ARRAYs
