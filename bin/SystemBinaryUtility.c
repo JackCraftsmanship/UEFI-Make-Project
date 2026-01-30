@@ -86,11 +86,11 @@ EFI_STATUS SBU_Readline(IN SBU *This, OUT CHAR16 *Buffer, IN UINTN BufferSize) {
 EFI_STATUS SBU_ReBoot(IN SBU *This, IN CHAR16 *Option) {
     EFI_RESET_TYPE resetType;
 
-    if(!StrCmp(Option, L"c") || !StrCmp(Option, L"cold")) {
+    if(!StrCmp(Option, L"-c") || !StrCmp(Option, L"--cold")) {
         Print(L"Reset with device shutdown.");
         resetType = EfiResetCold;
     }
-    else if(!StrCmp(Option, L"w") || !StrCmp(Option, L"warm")) {
+    else if(!StrCmp(Option, L"-w") || !StrCmp(Option, L"--warm")) {
         Print(L"Reset without device shutdown");
         resetType = EfiResetWarm;
     } else {
@@ -107,37 +107,39 @@ EFI_STATUS SBU_Shutdown(IN SBU *This) {
     return EFI_SUCCESS;
 }
 
-EFI_STATUS SBU_OptionHandler(IN SBU *This, IN CHAR16 *SourceString, IN CHAR16 *OptionIdentifier,
-                                OUT CHAR16 **ReturnOptionTokenArray, IN UINTN MaxTokenLength) {
-    INTN SStrSize = StrLen(SourceString);
-    INTN OptStrSize = StrLen(OptionIdentifier);
-    UINTN TemporalStart = 0;
-    UINTN TemporalEnd = 0;
+EFI_STATUS SBU_OptionHandler(IN SBU *This, IN CHAR16 *SourceString, IN OptionFlag OptionIdentifier[], IN UINTN OptionIdentifierCount,
+            IN UINTN MaxTokenLength, IN UINTN ReturnArrayLength, OUT CHAR16 ReturnOptionTokenArray[ReturnArrayLength][MaxTokenLength]) {
+    UINTN SStrSize = StrLen(SourceString);
+    UINTN ROTA_index = 0;
+    CHAR16 FlagFirstID[OptionIdentifierCount];
     EFI_STATUS Status;
 
-    for (INTN i = 0; i <= SStrSize; i++) {
-        if(!StrnCmp((SourceString + i), OptionIdentifier, OptStrSize)) {
-            TemporalStart = i;
+    for(INTN i = 0; i < OptionIdentifierCount; i++) {
+        if(OptionIdentifier[i].OptionIdentifier[0] != FlagFirstID[ROTA_index]) {
+            FlagFirstID[ROTA_index++] = OptionIdentifier[i].OptionIdentifier[0];
         }
     }
 
-    TemporalStart += OptStrSize;
+    ROTA_index = 0;
 
-    for(INTN j = TemporalStart; j <= (SStrSize - TemporalStart); j++) {
-        if(SourceString[j] == L' ') {
-            if(SourceString[j - 1] == L',') continue;
-            TemporalEnd = j;
-            break;
-        } else if(SourceString[j] == L'\0') {
-            TemporalEnd = j;
-            break;
+    for(INTN i = 0; i <= SStrSize; i++) {
+        for(INTN j = 0; j < StrLen(FlagFirstID); j++) {
+            if(FlagFirstID[j] == SourceString[i]) goto DO_EXACT_CMP;
+        }
+        continue;
+
+        DO_EXACT_CMP:
+        for (INTN j = 0; j < OptionIdentifierCount; j++) {
+            if(!StrnCmp(SourceString + i, OptionIdentifier[j].OptionIdentifier, OptionIdentifier[j].OptionTokenLength)) {
+                if(ROTA_index >= ReturnArrayLength) return EFI_SUCCESS;
+                Status = StrCpyS(ReturnOptionTokenArray[ROTA_index++], MaxTokenLength, OptionIdentifier[j].OptionIdentifier);
+                Print(L"Status : %d\r\n", Status);
+                if(EFI_ERROR(Status)) return Status;
+                i += OptionIdentifier[j].OptionTokenLength - 1;
+            }
         }
     }
 
-    Status = StrnCatS(ReturnOptionTokenArray, MaxTokenLength, SourceString, TemporalEnd - TemporalStart);
-    Print(L"Dest : %d, MAxTokenLength : %d\r\n", StrLen(ReturnOptionTokenArray), MaxTokenLength);
-    Print(L"Status : %d\r\n", Status);
-    if(EFI_ERROR(Status)) return Status;
     return EFI_SUCCESS;
 }
 

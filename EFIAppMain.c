@@ -37,26 +37,17 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* sysTab
 
         if(!StrnCmp(input_buffer, L"reset", 5)) {
             static OptionFlag ResetOption[] = {
-                {L"-", L"c"},
-                {L"-", L"w"},
-                {L"--", L"cold"},
-                {L"--", L"warm"}
+                {L"-c", 2},
+                {L"-w", 2},
+                {L"--cold", 6},
+                {L"--warm", 6}
             };
-            static OptionContainer ResetOptionContainer = {ResetOption, 4, 1};
+            static OptionContainer ResetOptionContainer = {ResetOption, 7, 1};
             EFI_STATUS Status;
-            CHAR16 OptionArray[ResetOptionContainer.MaxInputOptionLength];
+            CHAR16 OptionArray[ResetOptionContainer.MaxInputArrayLength][ResetOptionContainer.MaxInputOptionLength];
 
-            Status = shell.OptionHandler(&shell, input_buffer, ResetOptionContainer.OptionArray[0].OptionIdentifier,
-                                OptionArray, ResetOptionContainer.MaxInputOptionLength);
-            if(EFI_ERROR(Status)) {
-                if(Status != EFI_NOT_FOUND) {
-                    Print(L"An Error Occure During Find Option\r\n");
-                    goto RESET_END;
-                }
-            }
-            
-            Status = shell.OptionHandler(&shell, input_buffer, ResetOptionContainer.OptionArray[2].OptionIdentifier,
-                                OptionArray, ResetOptionContainer.MaxInputOptionLength);
+            Status = shell.OptionHandler(&shell, input_buffer, ResetOptionContainer.OptionArray, 4,
+                                ResetOptionContainer.MaxInputOptionLength, ResetOptionContainer.MaxInputArrayLength, OptionArray);
             if(EFI_ERROR(Status)) {
                 if(Status != EFI_NOT_FOUND) {
                     Print(L"An Error Occure During Find Option\r\n");
@@ -64,14 +55,14 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* sysTab
                 }
             }
 
-            if(OptionArray == NULL) {
+            if(OptionArray[0] == NULL) {
                 Print(L"\'reset\' need option, type \'reset help\' for more info\r\n");
                 goto RESET_END;
             }
 
-            Print(L"final Output : %s", OptionArray);
+            Print(L"final Output : %s\r\n", OptionArray[0]);
 
-            shell.RebootCommand(&shell, OptionArray);
+            shell.RebootCommand(&shell, OptionArray[0]);
             RESET_END:
         }
 

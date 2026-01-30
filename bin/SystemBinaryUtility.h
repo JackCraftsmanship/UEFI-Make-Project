@@ -5,6 +5,21 @@
 #include <Library/UefiLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 
+/** This is Option Flag that can be use as option identifier. 
+ * @note All of option MUST HAVE Option Identifier Symbol, if not, it will be ignored.
+ * @note start with this : !, @, #, $, -, ,
+ */
+typedef struct {
+    CHAR16 *OptionIdentifier;   //base Option Identifier
+    INTN OptionTokenLength;        //Option Token length
+} OptionFlag;
+
+typedef struct {
+    OptionFlag *OptionArray;        //OptionContainer Array
+    UINTN MaxInputOptionLength;      //Maximum Option Length
+    UINTN MaxInputArrayLength;       //Maximim OptionContainer Array Length
+ }OptionContainer;
+
 /** This Object is renamed identifier of _System_Binary_Utility.
  * It will give the interface of Basic Termianl Control in Boot Service
  * @note when init, attach with this function : SBU_InitializeLib
@@ -54,16 +69,19 @@ struct _System_Binary_Utility {
      * @param This self
      * @param SourceString Source string that want to parsing option
      * @param OptionIdentifier Option Identifier
-     * @param ReturnOptionTokenArray Return ALL Option Token that Identified, Return CHAR16 string ARRAYs
      * @param MaxTokenLength The Maximum Length of Token
+     * @param ReturnArrayLength The Length of ReturnOptionTokenArray
+     * @param ReturnOptionTokenArray Return ALL Option Token that Identified, Return CHAR16 string ARRAYs
      * @return When Error, return EFI_ERROR, when Normal, return EFI_SUCCESS
      */
     EFI_STATUS (*OptionHandler)(
         IN SBU *This,
         IN CHAR16 *SourceString,
-        IN CHAR16 *OptionIdentifier,
-        CHAR16 *ReturnOptionTokenArray,
-        IN UINTN MaxTokenLength
+        IN OptionFlag OptionIdentifier[],
+        IN UINTN OptionIdentifierCount,
+        IN UINTN MaxTokenLength,
+        IN UINTN ReturnArrayLength,
+        OUT CHAR16 ReturnOptionTokenArray[ReturnArrayLength][MaxTokenLength]
     );
 
     /** This is Part of _System_Binary_Utility or SBU, 
@@ -82,26 +100,13 @@ EFI_STATUS SBU_ReBoot(IN SBU *This, IN CHAR16 *Option);
 
 EFI_STATUS SBU_Shutdown(IN SBU *This);
 
-EFI_STATUS SBU_OptionHandler(IN SBU *This, IN CHAR16 *SourceString, IN CHAR16 *OptionIdentifier,
-                                CHAR16 *ReturnOptionTokenArray, IN UINTN MaxTokenLength);
+#define OPTION_MAX_LENGTH 128
+
+EFI_STATUS SBU_OptionHandler(IN SBU *This, IN CHAR16 *SourceString, IN OptionFlag OptionIdentifier[], IN UINTN OptionIdentifierCount,
+            IN UINTN MaxTokenLength, IN UINTN ReturnArrayLength, OUT CHAR16 ReturnOptionTokenArray[ReturnArrayLength][MaxTokenLength]);
 
 EFI_STATUS SBU_WhoamI(IN SBU *This);
 
 EFI_STATUS SBU_InitializeLib(IN SBU *This);
-
-/** This is Option Flag that can be use as option identifier. 
- * @note All of option MUST HAVE Option Identifier Symbol, if not, it will be ignored.
- * @note Use this : !, @, #, $, -, ,
- */
-typedef struct {
-    CHAR16 *OptionIdentifier;   //base Option Identifier
-    CHAR16 *OptionToken;        //actual Option Token
-} OptionFlag;
-
-typedef struct {
-    OptionFlag *OptionArray;        //OptionContainer Array
-    UINTN MaxInputOptionLength;          //Maximum Accept Input Option Length
-    UINTN MaxInputArrayLength;           //Maximim Accept Input Option Container Array Length
- } OptionContainer;
 
 #endif
