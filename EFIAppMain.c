@@ -7,7 +7,6 @@
 //EDK2 is C99 base.
 ////////EDK2 includes End////////
 
-#include "./bin/StringHandle.h"
 #include "./bin/SystemBinaryUtility.h"
 #include "./bin/BootFileSystemUtility.h"
 
@@ -60,7 +59,7 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* sysTab
             if(input_buffer[3] == 0x20) {       //0x20 == space
                 CHAR16 TempFileNameContainer[256];
                 EFI_STATUS Status;
-                Status = SubStr(input_buffer, TempFileNameContainer, 4);
+                StrCatS(TempFileNameContainer, MAX_BUFFER_SIZE, (input_buffer + 4));
                 if(EFI_ERROR(Status)) {
                     Print(L"Argument Error While reading the Name.\r\n");
                     goto CAT_END;
