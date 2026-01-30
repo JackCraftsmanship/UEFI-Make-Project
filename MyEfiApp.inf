@@ -10,6 +10,8 @@
   EFIAppMain.c
   bin/StringHandle.c
   bin/StringHandle.h
+  bin/SystemBinaryUtility.c
+  bin/SystemBinaryUtility.h
 
 [Packages]
   MdePkg/MdePkg.dec
