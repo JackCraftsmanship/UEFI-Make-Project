@@ -8,6 +8,8 @@
 
 [Sources]
   EFIAppMain.c
+  bin/StringHandle.c
+  bin/StringHandle.h
 
 [Packages]
   MdePkg/MdePkg.dec

@@ -7,52 +7,12 @@
 //EDK2 is C99 base.
 ////////EDK2 includes End////////
 
+#include "./bin/StringHandle.h"
+
+////////ZCP includes End////////
+
 #define MAX_BUFFER_SIZE 256
 #define TYPOLOCATION L">> "
-
-
-/** SubString, Copy substring Start to End-of-String and paste into Destiantion
- * @param SourceString String of Origin source
- * @param DestinationString String for paste
- * @param Start starting position (contain)
- * @return EFI_ERROR code, when Sucess, return EFI_SUCCESS
-*/
-EFI_STATUS SubStr(CHAR16 *SourceString, CHAR16 *DestinationString, UINTN Start) {
-    UINTN F_size = StrSize(SourceString);
-
-    if(SourceString[0] == L'\0') return EFI_INVALID_PARAMETER;
-
-    else if(Start >= (F_size)) return EFI_BAD_BUFFER_SIZE;
-
-    for(INTN i = Start; i <= F_size; i++) {
-        DestinationString[i - Start] = SourceString[i];
-    }
-    return EFI_SUCCESS;
-}
-
-/** SubString, Copy substring Start to End and paste into Destiantion
- * @param SourceString String of Origin source
- * @param DestinationString String for paste
- * @param Start starting position (contain)
- * @param End end position (contain)
- * @return EFI_ERROR code, when Sucess, return EFI_SUCCESS
-*/
-EFI_STATUS SubnStr(CHAR16 *SourceString, CHAR16 *DestinationString, UINTN Start, UINTN End) {
-    UINTN F_size = StrSize(SourceString);
-    UINTN D_size = StrSize(DestinationString);
-
-    if(SourceString[0] == L'\0') return EFI_INVALID_PARAMETER;
-
-    if(End < Start) return EFI_INVALID_PARAMETER;
-    else if(Start >= (F_size)) return EFI_BAD_BUFFER_SIZE;
-    else if(End >= (F_size)) return EFI_BAD_BUFFER_SIZE;
-    if((End - Start + 1) > D_size) return EFI_BUFFER_TOO_SMALL;
-
-    for(INTN i = Start; i <= End; i++) {
-        DestinationString[i - Start] = SourceString[i];
-    }
-    return EFI_SUCCESS;
-}
 
 /**This Object is renamed identifier of _System_Binary_Utility.
  * It will give the interface of Basic Termianl Control in Boot Service
@@ -355,7 +315,7 @@ EFI_STATUS BFSU_MakeFile(IN BFSU *This, IN CHAR16 *FileName) {
     EFI_FILE_PROTOCOL *RootHandle = NULL;  //root directory handle
     EFI_STATUS Status;
 
-    BFSU_ProtocolHeader(&This, &FsProtocol, &RootHandle, &Status);
+    BFSU_ProtocolHeader(This, &FsProtocol, &RootHandle, &Status);
     
     EFI_FILE_PROTOCOL *FileHandle = NULL;  //current file handle
     Status = RootHandle->Open(RootHandle, &FileHandle, FileName, EFI_FILE_MODE_CREATE | EFI_FILE_MODE_WRITE | EFI_FILE_MODE_READ, 0);
