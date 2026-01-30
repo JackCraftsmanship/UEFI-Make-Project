@@ -28,10 +28,14 @@ struct _System_Binary_Utility {
     EFI_STATUS (*ShutdownCommand)(
         IN SBU *This
     );
+    EFI_STATUS (*OptionHandler)(
+        IN SBU *This,
+        IN CHAR16 *SourceString
+    );
     EFI_STATUS (*WhoamI)(
         IN SBU *This
     );
-    //when init, attach woth this function : SBU_InitializeLib
+    //when init, attach with this function : SBU_InitializeLib
 };
 
 EFI_STATUS SBU_Readline(IN SBU *This, OUT CHAR16 *Buffer, IN UINTN BufferSize) {
@@ -141,6 +145,10 @@ EFI_STATUS SBU_Shutdown(IN SBU *This) {
     return EFI_SUCCESS;
 }
 
+EFI_STATUS SBU_OptionHandler(IN SBU *This, IN CHAR16 *SourceString) {
+
+}
+
 EFI_STATUS SBU_WhoamI(IN SBU *This) {
     Print(L"This shell is part of Custom EFI Boot Service\r\nMade by Jack::ZeroCP\r\n");
     return EFI_SUCCESS;
@@ -152,6 +160,7 @@ EFI_STATUS SBU_InitializeLib(IN SBU *This)
     This->RebootCommand = SBU_ReBoot;
     This->ShutdownCommand = SBU_Shutdown;
     This->WhoamI = SBU_WhoamI;
+    This->OptionHandler = SBU_OptionHandler; 
 
     return EFI_SUCCESS;
 }
