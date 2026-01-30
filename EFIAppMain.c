@@ -12,7 +12,6 @@
 
 /**This Object is renamed identifier of _System_Binary_Utility.
  * It will give the interface of Basic Termianl Control in Boot Service
- * @class master
  */
 typedef struct _System_Binary_Utility SBU;
 
