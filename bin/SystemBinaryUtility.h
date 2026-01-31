@@ -7,7 +7,7 @@
 
 /** This is Option Flag that can be use as option identifier. 
  * @note All of option MUST HAVE Option Identifier Symbol, if not, it is difficult to identify it
- * @note start with this : !, @, #, $, -, ,
+ * @note start with this : - or --
  */
 typedef struct {
     CHAR16 *OptionIdentifier;   //base Option Identifier
