@@ -69,12 +69,20 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* sysTab
 
         if(!StrnCmp(input_buffer, L"test", 4)) {
             CommandToken Token1;
+            StrCpyS(Token1.Token, MAX_TOKEN_STRING, L"test");
+            Token1.TokenPosition = 0;
+            Token1.TokenType = TOKENTYPE_COMMAND;
+
             EFI_STATUS Status;
-            Status = Token_OptionHandler(input_buffer + 4, &Token1);
-            if(EFI_ERROR(Status)) {
-                Print(L"Token Parsing fail with %d\r\n", Status);
-            } else {
-                Print(L"Token input : %s\r\n", Token1.Token);
+
+            CommandToken TokenBuffer[5];
+            TokenBuffer[0] = Token1;
+            
+            Status = shell.TokenHandler(&shell, (input_buffer + 4), 5, TokenBuffer);
+            if(EFI_ERROR(Status)) Print(L"Token Parsing Failed with %d\r\n", Status);
+
+            for(int i = 0; i < 5; i++) {
+                Print(L"Token %d Parsed : %s, %d\r\n", TokenBuffer[i].TokenPosition, TokenBuffer[i].Token, TokenBuffer[i].TokenType);
             }
         }
 

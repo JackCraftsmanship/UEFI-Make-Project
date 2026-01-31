@@ -117,8 +117,10 @@ struct _System_Binary_Utility {
      * @return When Error, return EFI_ERROR, when Normal, return EFI_SUCCESS
      */
     EFI_STATUS (*TokenHandler)(
-        IN SBU *This
-        //after complete, write
+        IN SBU *This,
+        IN CHAR16 *SourceBuffer,
+        IN UINTN TokenMaxAmount,
+        OUT CommandToken *Token
     );
 
     /** This is Part of _System_Binary_Utility or SBU, 
@@ -139,10 +141,9 @@ EFI_STATUS SBU_Shutdown(IN SBU *This);
 
 #define OPTION_MAX_LENGTH 128
 
-EFI_STATUS SBU_TokenHandler(IN SBU *This);
-//after complete, write
-EFI_STATUS Token_ArgumentHandler(IN CHAR16 *SourceBuffer, OUT CommandToken *Token);
-EFI_STATUS Token_OptionHandler(IN CHAR16 *SourceBuffer, OUT CommandToken *Token);
+EFI_STATUS SBU_TokenHandler(IN SBU *This, IN CHAR16 *SourceBuffer, IN UINTN TokenMaxAmount, OUT CommandToken *Token);
+EFI_STATUS Token_ArgumentHandler(IN CHAR16 *SourceBuffer, OUT CommandToken *Token, OUT UINTN *Next);
+EFI_STATUS Token_OptionHandler(IN CHAR16 *SourceBuffer, OUT CommandToken *Token, OUT UINTN *Next);
 
 EFI_STATUS SBU_WhoamI(IN SBU *This);
 

@@ -107,12 +107,41 @@ EFI_STATUS SBU_Shutdown(IN SBU *This) {
     return EFI_SUCCESS;
 }
 
-EFI_STATUS SBU_TokenHandler(IN SBU *This, IN CHAR16 *SourceBuffer, OUT CommandToken *Token[], IN UINTN TokenMaxAmount) {
-    
+EFI_STATUS SBU_TokenHandler(IN SBU *This, IN CHAR16 *SourceBuffer, IN UINTN TokenMaxAmount, OUT CommandToken *Token) {
+    if(StrSize(SourceBuffer) == 0) return RETURN_BAD_BUFFER_SIZE;
+    if(SourceBuffer[0] == L'\0') return RETURN_BAD_BUFFER_SIZE;
+
+    UINTN StrFront = 0;
+    UINTN CharLength = 0;
+    UINTN index = 1;
+    EFI_STATUS Status;
+
+    for(; StrFront < (StrLen(SourceBuffer) + 1); StrFront++) {
+        if(SourceBuffer[StrFront] == L'\0') return EFI_SUCCESS;
+        if(SourceBuffer[StrFront] == L' ') {
+            if (SourceBuffer[StrFront + 1] == L'\0') return EFI_SUCCESS;
+            else if(SourceBuffer[StrFront + 1] == L'-') {
+                StrFront++;
+                Status = Token_OptionHandler(SourceBuffer + StrFront, &Token[index], &CharLength);
+                StrFront += CharLength;
+                Token[index].TokenPosition = index;
+                index++;
+                if(EFI_ERROR(Status)) return Status;
+            }
+            else if(SourceBuffer[StrFront + 1] != L' ') {
+                Status = Token_ArgumentHandler(SourceBuffer + StrFront, &Token[index], &CharLength);
+                StrFront += CharLength;
+                Token[index].TokenPosition = index;
+                index++;
+                if(EFI_ERROR(Status)) return Status;
+            }
+        }
+        if(index >= TokenMaxAmount) return EFI_SUCCESS;
+    }
     return EFI_SUCCESS;
 }
 
-EFI_STATUS Token_ArgumentHandler(IN CHAR16 *SourceBuffer, OUT CommandToken *Token) {
+EFI_STATUS Token_ArgumentHandler(IN CHAR16 *SourceBuffer, OUT CommandToken *Token, OUT UINTN *Next) {
     if(StrSize(SourceBuffer) == 0) return RETURN_BAD_BUFFER_SIZE;
     if(SourceBuffer[0] == L'\0') return RETURN_BAD_BUFFER_SIZE;
 
@@ -142,10 +171,13 @@ EFI_STATUS Token_ArgumentHandler(IN CHAR16 *SourceBuffer, OUT CommandToken *Toke
     }
     Token->TokenType = TOKENTYPE_ARGUMENT;
     Token->TokenPosition = 0;
+
+    Print(L"Return Pointer vaule : %d\r\n", StrBack - StrFront);
+    *Next = StrBack - StrFront;
     return EFI_SUCCESS;
 }
 
-EFI_STATUS Token_OptionHandler(IN CHAR16 *SourceBuffer, OUT CommandToken *Token) {
+EFI_STATUS Token_OptionHandler(IN CHAR16 *SourceBuffer, OUT CommandToken *Token, OUT UINTN *Next) {
     if(StrSize(SourceBuffer) == 0) return RETURN_BAD_BUFFER_SIZE;
     if(SourceBuffer[0] == L'\0') return RETURN_BAD_BUFFER_SIZE;
 
@@ -153,10 +185,11 @@ EFI_STATUS Token_OptionHandler(IN CHAR16 *SourceBuffer, OUT CommandToken *Token)
     UINTN StrFront = 0;
     EFI_STATUS Status;
 
+    /*
     for(; StrFront < StrLen(SourceBuffer) + 1; StrFront++) {
-        if(SourceBuffer[StrFront] == L'\0') return RETURN_NOT_FOUND;
         if(SourceBuffer[StrFront] == L'-') break;
     }
+    */
 
     if(!StrnCmp(SourceBuffer + StrFront, L"--", 2)) {
         StrFront += 2;
@@ -195,7 +228,8 @@ EFI_STATUS Token_OptionHandler(IN CHAR16 *SourceBuffer, OUT CommandToken *Token)
         }
         Token->TokenType = TOKENTYPE_OPTION_SHORT;
     }
-    
+    Print(L"Return Pointer vaule : %d\r\n", StrBack - StrFront);
+    *Next = StrBack - StrFront;
     Token->TokenPosition = 0;
     return EFI_SUCCESS;
 }
@@ -211,7 +245,7 @@ EFI_STATUS SBU_InitializeLib(IN SBU *This)
     This->RebootCommand = SBU_ReBoot;
     This->ShutdownCommand = SBU_Shutdown;
     This->WhoamI = SBU_WhoamI;
-    //This->OptionHandler = SBU_OptionHandler; 
+    This->TokenHandler = SBU_TokenHandler; 
 
     return EFI_SUCCESS;
 }
