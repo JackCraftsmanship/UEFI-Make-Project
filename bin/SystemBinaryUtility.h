@@ -7,7 +7,20 @@
 
 #define ShortOption "-"
 #define LongOption "--"
-#define MAX_ARGUMENT_STRING 256
+#define MAX_TOKEN_STRING 256
+
+/*
+구조를 이런식으로 만들기 : 
+명령어 [토큰1] [토큰2]
+
+토큰1이 인자이면 -> 인자 해석기로 보내기
+토큰1이 옵션이면 -> 옵션 해석기로 보내기
+
+마찬가지로 각 토큰마다 하기, 그리고 토큰는 L" "에 의해 나누어짐
+
+각 토큰 번호를 내보내는 인자/옵션 포인터 배열에 매기기
+토큰는 각 토큰들의 위치 관계를 정확하게 나타내줄 것임
+*/
 
 /** This is Document type for Argument, contain Key : value
  * each argument is separated by " " and NOT start with "-" or "--"
@@ -15,7 +28,7 @@
 typedef struct {
     UINTN ArgumentType;     //ArgumentType determine which argument is nessesary or not, 1 for Need, 0 for Optional
     CHAR16 *Key;            //Key of Argument, Key will hold argument identifier
-    CHAR16 *Value;          //Value of Argument, Value will hold argument value
+    CHAR16 Value[MAX_TOKEN_STRING];          //Value of Argument, Value will hold argument value
 } ArgumentFlag;
 
 /** This is Option Flag that can be use as option identifier. Contain ONE option flag data structure
@@ -27,6 +40,21 @@ typedef struct {
     CHAR16 *OptionToken;            //Option Token
 } OptionFlag;
 
+#define TOKENTYPE_COMMAND 0xf1
+#define TOKENTYPE_ARGUMENT 0xF2
+#define TOKENTYPE_OPTION_SHORT 0xF3
+#define TOKENTYPE_OPTION_LONG 0xF4
+
+/** This Token of Command, Which is the output of Token Interpreter.
+ * It hold ONE token, and it's position in command line.
+ * It will send to Command program for further use.
+ */
+typedef struct {
+    CHAR16 Token[MAX_TOKEN_STRING];
+    UINTN TokenType;                    //can accept : TOKENTYPE_s
+    UINTN TokenPosition;
+} CommandToken;
+
 /** This is Command Container that can be Contain some Option Identifiers and set some rules about Options
  * @note Argument Array index will be the position of Argument when input
  */
@@ -34,10 +62,7 @@ typedef struct {
     CHAR16 *CommandName;            //Main Command name
     OptionFlag *OptionArray;        //Option Array
     UINTN OptionAmount;             //The amount of Option that option will handle
-    union {
-        ArgumentFlag *ArgumentArray;    //Argument array(or just ) that Option can handle
-        CommandContainer *NewCommandContainer;     //New CommandContainer for addition option & Argument for current position
-    };
+    ArgumentFlag *ArgumentArray;    //Argument array that Command can handle
     UINTN ArgumentAmount;           //The amount of Argument that option will handle, if it held New Command, set to 1
  } CommandContainer;
 
@@ -91,7 +116,7 @@ struct _System_Binary_Utility {
      * 
      * @return When Error, return EFI_ERROR, when Normal, return EFI_SUCCESS
      */
-    EFI_STATUS (*OptionHandler)(
+    EFI_STATUS (*TokenHandler)(
         IN SBU *This
         //after complete, write
     );
@@ -114,8 +139,10 @@ EFI_STATUS SBU_Shutdown(IN SBU *This);
 
 #define OPTION_MAX_LENGTH 128
 
-EFI_STATUS SBU_OptionHandler(IN SBU *This);
+EFI_STATUS SBU_TokenHandler(IN SBU *This);
 //after complete, write
+EFI_STATUS Token_ArgumentHandler(IN CHAR16 *SourceBuffer, OUT CommandToken *Token);
+EFI_STATUS Token_OptionHandler(IN CHAR16 *SourceBuffer, OUT CommandToken *Token);
 
 EFI_STATUS SBU_WhoamI(IN SBU *This);
 

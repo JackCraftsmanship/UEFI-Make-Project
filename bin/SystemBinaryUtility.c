@@ -107,11 +107,98 @@ EFI_STATUS SBU_Shutdown(IN SBU *This) {
     return EFI_SUCCESS;
 }
 
-EFI_STATUS SBU_OptionHandler(IN SBU *This) {
-
+EFI_STATUS SBU_TokenHandler(IN SBU *This, IN CHAR16 *SourceBuffer, OUT CommandToken *Token[], IN UINTN TokenMaxAmount) {
+    
+    return EFI_SUCCESS;
 }
 
+EFI_STATUS Token_ArgumentHandler(IN CHAR16 *SourceBuffer, OUT CommandToken *Token) {
+    if(StrSize(SourceBuffer) == 0) return RETURN_BAD_BUFFER_SIZE;
+    if(SourceBuffer[0] == L'\0') return RETURN_BAD_BUFFER_SIZE;
 
+    UINTN StrBack = 0;
+    UINTN StrFront = 0;
+    EFI_STATUS Status;
+
+    while(TRUE) {
+        if(SourceBuffer[StrBack] == L' ') {
+            if(StrBack == StrFront) {
+                StrBack++;
+                StrFront++;
+                continue;
+            }
+            Status = StrnCpyS(Token->Token, MAX_TOKEN_STRING, SourceBuffer + StrFront, StrBack - StrFront);
+            if(EFI_ERROR(Status)) return Status;
+            break;
+        }
+        else if(SourceBuffer[StrBack] == L'\0') {
+            Status = StrnCpyS(Token->Token, MAX_TOKEN_STRING, SourceBuffer + StrFront, StrBack - StrFront);
+            if(EFI_ERROR(Status)) return Status;
+            break;
+        }
+        StrBack++;
+        if(StrBack >= MAX_TOKEN_STRING) return RETURN_NOT_FOUND;
+        if(SourceBuffer[StrBack] == L'\0' && StrBack == StrFront) return RETURN_NOT_FOUND;
+    }
+    Token->TokenType = TOKENTYPE_ARGUMENT;
+    Token->TokenPosition = 0;
+    return EFI_SUCCESS;
+}
+
+EFI_STATUS Token_OptionHandler(IN CHAR16 *SourceBuffer, OUT CommandToken *Token) {
+    if(StrSize(SourceBuffer) == 0) return RETURN_BAD_BUFFER_SIZE;
+    if(SourceBuffer[0] == L'\0') return RETURN_BAD_BUFFER_SIZE;
+
+    UINTN StrBack = 0;
+    UINTN StrFront = 0;
+    EFI_STATUS Status;
+
+    for(; StrFront < StrLen(SourceBuffer) + 1; StrFront++) {
+        if(SourceBuffer[StrFront] == L'\0') return RETURN_NOT_FOUND;
+        if(SourceBuffer[StrFront] == L'-') break;
+    }
+
+    if(!StrnCmp(SourceBuffer + StrFront, L"--", 2)) {
+        StrFront += 2;
+        StrBack = StrFront;
+        if(SourceBuffer[StrBack] == L'\0' || SourceBuffer[StrBack] == L' ') return RETURN_INVALID_PARAMETER;
+
+        StrBack++;
+        while(TRUE) {
+        if(SourceBuffer[StrBack] == L'\0' || SourceBuffer[StrBack] == L' ') {
+            Status = StrnCpyS(Token->Token, MAX_TOKEN_STRING, SourceBuffer + StrFront, StrBack - StrFront);
+            if(EFI_ERROR(Status)) return Status;
+            break;
+        }
+        StrBack++;
+        if(StrBack >= MAX_TOKEN_STRING) return RETURN_INVALID_PARAMETER;
+        if(SourceBuffer[StrBack] == L'\0' && StrBack == StrFront) return RETURN_INVALID_PARAMETER;
+        }
+        Token->TokenType = TOKENTYPE_OPTION_LONG;
+    }
+    
+    else {
+        StrFront += 1;
+        StrBack = StrFront;
+        if(SourceBuffer[StrBack] == L'\0' || SourceBuffer[StrBack] == L' ') return RETURN_INVALID_PARAMETER;
+
+        StrBack++;
+        while(TRUE) {
+        if(SourceBuffer[StrBack] == L'\0' || SourceBuffer[StrBack] == L' ') {
+            Status = StrnCpyS(Token->Token, MAX_TOKEN_STRING, SourceBuffer + StrFront, StrBack - StrFront);
+            if(EFI_ERROR(Status)) return Status;
+            break;
+        }
+        StrBack++;
+        if(StrBack >= MAX_TOKEN_STRING) return RETURN_INVALID_PARAMETER;
+        if(SourceBuffer[StrBack] == L'\0' && StrBack == StrFront) return RETURN_INVALID_PARAMETER;
+        }
+        Token->TokenType = TOKENTYPE_OPTION_SHORT;
+    }
+    
+    Token->TokenPosition = 0;
+    return EFI_SUCCESS;
+}
 
 EFI_STATUS SBU_WhoamI(IN SBU *This) {
     Print(L"This shell is part of Custom EFI Boot Service\r\nMade by Jack::ZeroCP\r\n");
@@ -124,7 +211,7 @@ EFI_STATUS SBU_InitializeLib(IN SBU *This)
     This->RebootCommand = SBU_ReBoot;
     This->ShutdownCommand = SBU_Shutdown;
     This->WhoamI = SBU_WhoamI;
-    This->OptionHandler = SBU_OptionHandler; 
+    //This->OptionHandler = SBU_OptionHandler; 
 
     return EFI_SUCCESS;
 }

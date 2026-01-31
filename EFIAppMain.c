@@ -35,6 +35,7 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* sysTab
         Print(TYPOLOCATION);
         shell.ReadLine(&shell, input_buffer, MAX_BUFFER_SIZE);
 
+        /*
         if(!StrnCmp(input_buffer, L"reset", 5)) {
             static OptionFlag ResetOption[] = {
                 {L"-c", 2},
@@ -64,6 +65,17 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* sysTab
 
             shell.RebootCommand(&shell, OptionArray[0]);
             RESET_END:
+        }*/
+
+        if(!StrnCmp(input_buffer, L"test", 4)) {
+            CommandToken Token1;
+            EFI_STATUS Status;
+            Status = Token_OptionHandler(input_buffer + 4, &Token1);
+            if(EFI_ERROR(Status)) {
+                Print(L"Token Parsing fail with %d\r\n", Status);
+            } else {
+                Print(L"Token input : %s\r\n", Token1.Token);
+            }
         }
 
         if(!StrCmp(input_buffer, L"Shutdown") || !StrCmp(input_buffer, L"shutdown")) {
