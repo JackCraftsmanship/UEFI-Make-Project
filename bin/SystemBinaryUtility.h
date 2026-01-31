@@ -5,24 +5,41 @@
 #include <Library/UefiLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 
-/** This is Option Flag that can be use as option identifier. 
- * @note All of option MUST HAVE Option Identifier Symbol, if not, it is difficult to identify it
- * @note start with this : - or --
+#define ShortOption "-"
+#define LongOption "--"
+#define MAX_ARGUMENT_STRING 256
+
+/** This is Document type for Argument, contain Key : value
+ * each argument is separated by " " and NOT start with "-" or "--"
  */
 typedef struct {
-    CHAR16 *OptionIdentifier;   //base Option Identifier
-    INTN OptionTokenLength;        //Option Token length
+    UINTN ArgumentType;     //ArgumentType determine which argument is nessesary or not, 1 for Need, 0 for Optional
+    CHAR16 *Key;            //Key of Argument, Key will hold argument identifier
+    CHAR16 *Value;          //Value of Argument, Value will hold argument value
+} ArgumentFlag;
+
+/** This is Option Flag that can be use as option identifier. Contain ONE option flag data structure
+ * @note All of option MUST HAVE Option Identifier Symbol, if not, it is difficult to identify it
+ * @note start with this : "-" or "--"
+ */
+typedef struct {
+    BOOLEAN OptionType;             //Option Type of Token, use 0 for short, 1 for long
+    CHAR16 *OptionToken;            //Option Token
 } OptionFlag;
 
-/** This is Option Container that can be Contain some Option Identifiers and set some rules about Options
- * @note MaxInputOptionLength will be the Max Option String Length
- * @note MaxInputArrayLength will be ths Max Option Identifier Input amount
+/** This is Command Container that can be Contain some Option Identifiers and set some rules about Options
+ * @note Argument Array index will be the position of Argument when input
  */
 typedef struct {
-    OptionFlag *OptionArray;        //OptionContainer Array
-    UINTN MaxInputOptionLength;      //Maximum Option Length
-    UINTN MaxInputArrayLength;       //Maximim OptionContainer Array Length
- }OptionContainer;
+    CHAR16 *CommandName;            //Main Command name
+    OptionFlag *OptionArray;        //Option Array
+    UINTN OptionAmount;             //The amount of Option that option will handle
+    union {
+        ArgumentFlag *ArgumentArray;    //Argument array(or just ) that Option can handle
+        CommandContainer *NewCommandContainer;     //New CommandContainer for addition option & Argument for current position
+    };
+    UINTN ArgumentAmount;           //The amount of Argument that option will handle, if it held New Command, set to 1
+ } CommandContainer;
 
 /** This Object is renamed identifier of _System_Binary_Utility.
  * It will give the interface of Basic Termianl Control in Boot Service
@@ -71,22 +88,12 @@ struct _System_Binary_Utility {
      * Internal Option Handler for handle Option in command.
      * @note Currently not vaild
      * @param This self
-     * @param SourceString Source string that want to parsing option
-     * @param OptionIdentifier Option Identifier Array, type = OptionFlag
-     * @param OptionIdentifierCount Option Identifier Array Count
-     * @param MaxTokenLength The Maximum Length of Token
-     * @param ReturnArrayLength The Length of ReturnOptionTokenArray
-     * @param ReturnOptionTokenArray Return ALL Option Token that Identified, Return CHAR16 string ARRAYs
+     * 
      * @return When Error, return EFI_ERROR, when Normal, return EFI_SUCCESS
      */
     EFI_STATUS (*OptionHandler)(
-        IN SBU *This,
-        IN CHAR16 *SourceString,
-        IN OptionFlag OptionIdentifier[],
-        IN UINTN OptionIdentifierCount,
-        IN UINTN MaxTokenLength,
-        IN UINTN ReturnArrayLength,
-        OUT CHAR16 ReturnOptionTokenArray[ReturnArrayLength][MaxTokenLength]
+        IN SBU *This
+        //after complete, write
     );
 
     /** This is Part of _System_Binary_Utility or SBU, 
@@ -107,8 +114,8 @@ EFI_STATUS SBU_Shutdown(IN SBU *This);
 
 #define OPTION_MAX_LENGTH 128
 
-EFI_STATUS SBU_OptionHandler(IN SBU *This, IN CHAR16 *SourceString, IN OptionFlag OptionIdentifier[], IN UINTN OptionIdentifierCount,
-            IN UINTN MaxTokenLength, IN UINTN ReturnArrayLength, OUT CHAR16 ReturnOptionTokenArray[ReturnArrayLength][MaxTokenLength]);
+EFI_STATUS SBU_OptionHandler(IN SBU *This);
+//after complete, write
 
 EFI_STATUS SBU_WhoamI(IN SBU *This);
 

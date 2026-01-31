@@ -107,41 +107,11 @@ EFI_STATUS SBU_Shutdown(IN SBU *This) {
     return EFI_SUCCESS;
 }
 
-EFI_STATUS SBU_OptionHandler(IN SBU *This, IN CHAR16 *SourceString, IN OptionFlag OptionIdentifier[], IN UINTN OptionIdentifierCount,
-            IN UINTN MaxTokenLength, IN UINTN ReturnArrayLength, OUT CHAR16 ReturnOptionTokenArray[ReturnArrayLength][MaxTokenLength]) {
-    UINTN SStrSize = StrLen(SourceString);
-    UINTN ROTA_index = 0;
-    CHAR16 FlagFirstID[OptionIdentifierCount];
-    EFI_STATUS Status;
+EFI_STATUS SBU_OptionHandler(IN SBU *This) {
 
-    for(INTN i = 0; i < OptionIdentifierCount; i++) {
-        if(OptionIdentifier[i].OptionIdentifier[0] != FlagFirstID[ROTA_index]) {
-            FlagFirstID[ROTA_index++] = OptionIdentifier[i].OptionIdentifier[0];
-        }
-    }
-
-    ROTA_index = 0;
-
-    for(INTN i = 0; i <= SStrSize; i++) {
-        for(INTN j = 0; j < StrLen(FlagFirstID); j++) {
-            if(FlagFirstID[j] == SourceString[i]) goto DO_EXACT_CMP;
-        }
-        continue;
-
-        DO_EXACT_CMP:
-        for (INTN j = 0; j < OptionIdentifierCount; j++) {
-            if(!StrnCmp(SourceString + i, OptionIdentifier[j].OptionIdentifier, OptionIdentifier[j].OptionTokenLength)) {
-                if(ROTA_index >= ReturnArrayLength) return EFI_SUCCESS;
-                Status = StrCpyS(ReturnOptionTokenArray[ROTA_index++], MaxTokenLength, OptionIdentifier[j].OptionIdentifier);
-                Print(L"Status : %d\r\n", Status);
-                if(EFI_ERROR(Status)) return Status;
-                i += OptionIdentifier[j].OptionTokenLength - 1;
-            }
-        }
-    }
-
-    return EFI_SUCCESS;
 }
+
+
 
 EFI_STATUS SBU_WhoamI(IN SBU *This) {
     Print(L"This shell is part of Custom EFI Boot Service\r\nMade by Jack::ZeroCP\r\n");
