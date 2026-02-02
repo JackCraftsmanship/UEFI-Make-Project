@@ -60,31 +60,6 @@ EFI_STATUS BFSU_MakeFile(IN BFSU *This, IN CHAR16 *FileName) {
     Status = RootHandle->Open(RootHandle, &FileHandle, FileName, EFI_FILE_MODE_CREATE | EFI_FILE_MODE_WRITE | EFI_FILE_MODE_READ, 0);
 
     if (EFI_ERROR(Status)) {
-        Print(L"Cannot Create File : ");
-        if(Status == EFI_NO_MEDIA) {
-            Print(L"NO MEDIA\r\n");
-        }
-        else if(Status == EFI_VOLUME_CORRUPTED) {
-            Print(L"VOLUME CORRUPTED\r\n");
-        }
-        else if(Status == EFI_DEVICE_ERROR) {
-            Print(L"DEVICE ERROR\r\n");
-        }
-        else if(Status == EFI_ACCESS_DENIED) {
-            Print(L"ACCESS DENIED\r\n");
-        }
-        else if(Status == EFI_VOLUME_FULL) {
-            Print(L"VOLUME FULL\r\n");
-        }
-        else if(Status == EFI_OUT_OF_RESOURCES) {
-            Print(L"OUT OF RESOURCE\r\n");
-        }
-        else if(Status == EFI_UNSUPPORTED) {
-            Print(L"UNSUPPORT\r\n");
-        }
-        else if(Status == EFI_INVALID_PARAMETER) {
-            Print(L"INVAILD_PARAMETER\r\n");
-        }
         RootHandle->Close(RootHandle);
         return Status;
     }

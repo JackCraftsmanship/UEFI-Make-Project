@@ -114,40 +114,32 @@ EFI_STATUS SBU_TokenHandler(IN SBU *This, IN CHAR16 *SourceBuffer, IN UINTN Toke
     UINTN StrFront = 0;
     UINTN CharLength = 0;
     UINTN index = 1;
+    UINTN StrLength = StrLen(SourceBuffer) + 1;
     EFI_STATUS Status;
 
-    for(; StrFront < (StrLen(SourceBuffer) + 1); StrFront++) {
+    for(; StrFront < StrLength; StrFront++) {
         if(SourceBuffer[StrFront] == L'\0') return EFI_SUCCESS;
         if(SourceBuffer[StrFront] == L' ') {
             if (SourceBuffer[StrFront + 1] == L'\0') return EFI_SUCCESS;
-            else if(SourceBuffer[StrFront + 1] == L'-') {
-                StrFront++;
+            StrFront++;
+            if(SourceBuffer[StrFront + 1] == L'-') {
                 Status = Token_OptionHandler(SourceBuffer + StrFront, &Token[index], &CharLength);
-                StrFront += CharLength;
-                Token[index].TokenPosition = index;
-                index++;
                 if(EFI_ERROR(Status)) return Status;
-            }
-            else if(SourceBuffer[StrFront + 1] != L' ') {
+            } else if(SourceBuffer[StrFront + 1] != L' ') {
                 Status = Token_ArgumentHandler(SourceBuffer + StrFront, &Token[index], &CharLength);
-                StrFront += CharLength;
-                Token[index].TokenPosition = index;
-                index++;
                 if(EFI_ERROR(Status)) return Status;
             }
+            StrFront += CharLength;
+            Print(L"Parsing End with : %d\r\n Next Char : \'%c\'\r\n", StrFront, SourceBuffer[StrFront]);
+            if(SourceBuffer[StrFront] != L' ') return RETURN_INVALID_PARAMETER;
+            StrFront--;
+            Token[index].TokenPosition = index;
+            index++;
         }
         if(index >= TokenMaxAmount) return EFI_SUCCESS;
     }
     return EFI_SUCCESS;
 }
-
-/*
-이전의 방식 : L" "을 엔트리로 사용되는 함수 Token_ArgumentHandler
-변경 -> L" "를 기준으로 사용이 되지만, 다음의 문자가 L'\"', L' ', L'\0' 인지 확인하는 함수 생성,
-if first : 다음 L'\"'를 찾을 때 까지 진행, 만약 L'\0'이 있으면 에러 보내고 종료.
-if second : 다음 L' 'fmf 찾을 때 까지 진행, 만약 L'\"', L'\0'이 있으면 에러 보내고 종료.
-if third : 파싱할 것이 없음, 종료.
-*/
 
 EFI_STATUS Token_ArgumentHandler(IN CHAR16 *SourceBuffer, OUT CommandToken *Token, OUT UINTN *Next) {
     if(StrSize(SourceBuffer) == 0) return RETURN_BAD_BUFFER_SIZE;
@@ -155,27 +147,31 @@ EFI_STATUS Token_ArgumentHandler(IN CHAR16 *SourceBuffer, OUT CommandToken *Toke
 
     UINTN StrBack = 0;
     UINTN StrFront = 0;
+    UINTN StrLength = StrLen(SourceBuffer) + 1;
     EFI_STATUS Status;
 
-    while(TRUE) {
-        if(SourceBuffer[StrBack] == L' ') {
-            if(StrBack == StrFront) {
-                StrBack++;
-                StrFront++;
-                continue;
-            }
-            Status = StrnCpyS(Token->Token, MAX_TOKEN_STRING, SourceBuffer + StrFront, StrBack - StrFront);
-            if(EFI_ERROR(Status)) return Status;
-            break;
-        }
-        else if(SourceBuffer[StrBack] == L'\0') {
-            Status = StrnCpyS(Token->Token, MAX_TOKEN_STRING, SourceBuffer + StrFront, StrBack - StrFront);
-            if(EFI_ERROR(Status)) return Status;
-            break;
-        }
+    if(SourceBuffer[StrBack] == L'\"') {
         StrBack++;
-        if(StrBack >= MAX_TOKEN_STRING) return RETURN_NOT_FOUND;
-        if(SourceBuffer[StrBack] == L'\0' && StrBack == StrFront) return RETURN_NOT_FOUND;
+        if(StrBack >= MAX_TOKEN_STRING) return RETURN_INVALID_PARAMETER;
+        if(SourceBuffer[StrBack] == L'\0' && StrBack == (StrFront + 1)) return RETURN_INVALID_PARAMETER;
+        for(;StrBack < StrLength; StrBack++) {
+            if(SourceBuffer[StrBack] == L'\"') {
+                Status = StrnCpyS(Token->Token, MAX_TOKEN_STRING, (SourceBuffer + StrFront + 1), (StrBack - StrFront - 1));
+                if(EFI_ERROR(Status)) return Status;
+                break;
+            }
+            if(StrBack >= MAX_TOKEN_STRING) return RETURN_INVALID_PARAMETER;
+            if(SourceBuffer[StrBack] == L'\0' && StrBack == (StrFront + 1)) return RETURN_INVALID_PARAMETER;
+        }
+        StrBack++;      //for end character : L'\"'
+    } else {
+        for(;StrBack < StrLength; StrBack++) {
+            if(SourceBuffer[StrBack] == L' ' || SourceBuffer[StrBack] == L'\0') {
+                Status = StrnCpyS(Token->Token, MAX_TOKEN_STRING, SourceBuffer + StrFront, StrBack - StrFront);
+                if(EFI_ERROR(Status)) return Status;
+                break;
+            }
+        }
     }
     Token->TokenType = TOKENTYPE_ARGUMENT;
     Token->TokenPosition = 0;
@@ -216,6 +212,7 @@ EFI_STATUS Token_OptionHandler(IN CHAR16 *SourceBuffer, OUT CommandToken *Token,
         if(SourceBuffer[StrBack] == L'\0' && StrBack == StrFront) return RETURN_INVALID_PARAMETER;
         }
         Token->TokenType = TOKENTYPE_OPTION_LONG;
+        StrBack += 2;  //for L'--'
     }
     
     else {
@@ -235,6 +232,7 @@ EFI_STATUS Token_OptionHandler(IN CHAR16 *SourceBuffer, OUT CommandToken *Token,
         if(SourceBuffer[StrBack] == L'\0' && StrBack == StrFront) return RETURN_INVALID_PARAMETER;
         }
         Token->TokenType = TOKENTYPE_OPTION_SHORT;
+        StrBack++;  //for L'-'
     }
     Print(L"Return Pointer vaule : %d\r\n", StrBack - StrFront);
     *Next = StrBack - StrFront;
