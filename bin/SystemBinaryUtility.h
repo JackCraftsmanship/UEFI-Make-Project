@@ -35,6 +35,7 @@
  */
 typedef struct C_Token{
     UINTN TokenType;                    //can accept : TOKENTYPE_*
+    CHAR16 *TokenKey;  //Token identifier for Argument identifier, when first == L'\0', ignored
     CHAR16 Token[MAX_TOKEN_STRING];     //actual token
     UINTN TokenPosition;                //position of token
 } CommandToken;
@@ -77,6 +78,7 @@ typedef struct C_Token{
  */
 typedef struct C_Argument{
     UINTN TokenPosition;                //Position in the Command line String
+    CHAR16 *Key;                        //Key value that identify the data, when first CHAR16 is L'\0', ignored
     UINTN ArgumentType;                 //ArgumentType determine which argument is nessesary or not, 1 for Need, 0 for Optional, if above, ignore
     CHAR16 Value[MAX_TOKEN_STRING];     //Value of Argument, Value will hold argument value, if 0, ignored
 } ArgumentToken;
@@ -178,7 +180,7 @@ struct _System_Binary_Utility {
      */
     EFI_STATUS (*TokenAssembler)(
         IN SBU *This,
-        CommandToken *TokenArray,
+        IN CommandToken *TokenArray,
         IN UINTN TokenMaxAmount,
         OUT CommandContainer *TokenContainer
     );
@@ -203,7 +205,9 @@ EFI_STATUS SBU_TokenHandler(IN SBU *This, IN CHAR16 *SourceBuffer, IN UINTN Toke
 EFI_STATUS Token_ArgumentHandler(IN CHAR16 *SourceBuffer, OUT CommandToken *Token, OUT UINTN *Next);
 EFI_STATUS Token_OptionHandler(IN CHAR16 *SourceBuffer, OUT CommandToken *Token, OUT UINTN *Next);
 
-EFI_STATUS SBU_TokenAssembler(IN SBU *This, CommandToken *TokenArray, IN UINTN TokenMaxAmount, OUT CommandContainer *TokenContainer);
+EFI_STATUS SBU_TokenAssembler(IN SBU *This, IN CommandToken *TokenArray, IN UINTN TokenMaxAmount, OUT CommandContainer *TokenContainer);
+EFI_STATUS ArgumentAssembler(IN CommandToken *TokenArray, IN UINTN TokenMaxAmount, IN UINTN ArgumentCount, OUT ArgumentToken *ArgumentArray);
+EFI_STATUS OptionAssembler(IN CommandToken *TokenArray, IN UINTN TokenMaxAmount, IN UINTN OptionCount, OUT ArgumentToken *OptionArray);
 
 EFI_STATUS SBU_WhoamI(IN SBU *This);
 
