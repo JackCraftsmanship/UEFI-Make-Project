@@ -107,38 +107,45 @@ EFI_STATUS SBU_Shutdown(IN SBU *This) {
     return EFI_SUCCESS;
 }
 
+
+/*
+토큰을 사용자 지정 연결 리스트 객체로 만들어서 관리하는 것이 적합.
+그렇기에 연결 리스트를 위한 별도의 파일을 만들 것.
+*/
+
 EFI_STATUS SBU_TokenHandler(IN SBU *This, IN CHAR16 *SourceBuffer, IN UINTN TokenMaxAmount, OUT CommandToken *Token) {
     if(StrSize(SourceBuffer) == 0) return RETURN_BAD_BUFFER_SIZE;
     if(SourceBuffer[0] == L'\0') return RETURN_BAD_BUFFER_SIZE;
+    if(Token == NULL) return RETURN_INVALID_PARAMETER;
 
     UINTN StrFront = 0;
     UINTN CharLength = 0;
     UINTN index = 1;
+    UINTN StrLength = StrLen(SourceBuffer) + 1;
     EFI_STATUS Status;
 
-    for(; StrFront < (StrLen(SourceBuffer) + 1); StrFront++) {
-        if(SourceBuffer[StrFront] == L'\0') return EFI_SUCCESS;
+    for(; StrFront < StrLength; StrFront++) {
+        if(SourceBuffer[StrFront] == L'\0') return RETURN_SUCCESS;
         if(SourceBuffer[StrFront] == L' ') {
-            if (SourceBuffer[StrFront + 1] == L'\0') return EFI_SUCCESS;
-            else if(SourceBuffer[StrFront + 1] == L'-') {
-                StrFront++;
+            if (SourceBuffer[StrFront + 1] == L'\0') return RETURN_SUCCESS;
+            StrFront++;
+            if(SourceBuffer[StrFront + 1] == L'-') {
                 Status = Token_OptionHandler(SourceBuffer + StrFront, &Token[index], &CharLength);
-                StrFront += CharLength;
-                Token[index].TokenPosition = index;
-                index++;
                 if(EFI_ERROR(Status)) return Status;
-            }
-            else if(SourceBuffer[StrFront + 1] != L' ') {
+            } else if(SourceBuffer[StrFront + 1] != L' ') {
                 Status = Token_ArgumentHandler(SourceBuffer + StrFront, &Token[index], &CharLength);
-                StrFront += CharLength;
-                Token[index].TokenPosition = index;
-                index++;
                 if(EFI_ERROR(Status)) return Status;
             }
+            StrFront += CharLength;
+            Print(L"Parsing End with : %d\r\n Next Char : \'%c\'\r\n", StrFront, SourceBuffer[StrFront]);
+            if(SourceBuffer[StrFront] != L' ') return RETURN_INVALID_PARAMETER;
+            StrFront--;
+            Token[index].TokenPosition = index;
+            index++;
         }
-        if(index >= TokenMaxAmount) return EFI_SUCCESS;
+        if(index >= TokenMaxAmount) return RETURN_SUCCESS;
     }
-    return EFI_SUCCESS;
+    return RETURN_SUCCESS;
 }
 
 EFI_STATUS Token_ArgumentHandler(IN CHAR16 *SourceBuffer, OUT CommandToken *Token, OUT UINTN *Next) {
@@ -147,34 +154,39 @@ EFI_STATUS Token_ArgumentHandler(IN CHAR16 *SourceBuffer, OUT CommandToken *Toke
 
     UINTN StrBack = 0;
     UINTN StrFront = 0;
+    UINTN StrLength = StrLen(SourceBuffer) + 1;
     EFI_STATUS Status;
 
-    while(TRUE) {
-        if(SourceBuffer[StrBack] == L' ') {
-            if(StrBack == StrFront) {
-                StrBack++;
-                StrFront++;
-                continue;
-            }
-            Status = StrnCpyS(Token->Token, MAX_TOKEN_STRING, SourceBuffer + StrFront, StrBack - StrFront);
-            if(EFI_ERROR(Status)) return Status;
-            break;
-        }
-        else if(SourceBuffer[StrBack] == L'\0') {
-            Status = StrnCpyS(Token->Token, MAX_TOKEN_STRING, SourceBuffer + StrFront, StrBack - StrFront);
-            if(EFI_ERROR(Status)) return Status;
-            break;
-        }
+    if(SourceBuffer[StrBack] == L'\"') {
         StrBack++;
-        if(StrBack >= MAX_TOKEN_STRING) return RETURN_NOT_FOUND;
-        if(SourceBuffer[StrBack] == L'\0' && StrBack == StrFront) return RETURN_NOT_FOUND;
+        if(StrBack >= MAX_TOKEN_STRING) return RETURN_INVALID_PARAMETER;
+        if(SourceBuffer[StrBack] == L'\0' && StrBack == (StrFront + 1)) return RETURN_INVALID_PARAMETER;
+        for(;StrBack < StrLength; StrBack++) {
+            if(SourceBuffer[StrBack] == L'\"') {
+                Status = StrnCpyS(Token->Token, MAX_TOKEN_STRING, (SourceBuffer + StrFront + 1), (StrBack - StrFront - 1));
+                if(EFI_ERROR(Status)) return Status;
+                break;
+            }
+            if(StrBack >= MAX_TOKEN_STRING) return RETURN_INVALID_PARAMETER;
+            if(SourceBuffer[StrBack] == L'\0' && StrBack == (StrFront + 1)) return RETURN_INVALID_PARAMETER;
+        }
+        StrBack++;      //for end character : L'\"'
+    } else {
+        for(;StrBack < StrLength; StrBack++) {
+            if(SourceBuffer[StrBack] == L' ' || SourceBuffer[StrBack] == L'\0') {
+                Status = StrnCpyS(Token->Token, MAX_TOKEN_STRING, SourceBuffer + StrFront, StrBack - StrFront);
+                if(EFI_ERROR(Status)) return Status;
+                break;
+            }
+        }
     }
+    Token->TokenKey[0] = L'\0';     //init data, but just for first.
     Token->TokenType = TOKENTYPE_ARGUMENT;
     Token->TokenPosition = 0;
 
     Print(L"Return Pointer vaule : %d\r\n", StrBack - StrFront);
     *Next = StrBack - StrFront;
-    return EFI_SUCCESS;
+    return RETURN_SUCCESS;
 }
 
 EFI_STATUS Token_OptionHandler(IN CHAR16 *SourceBuffer, OUT CommandToken *Token, OUT UINTN *Next) {
@@ -184,12 +196,6 @@ EFI_STATUS Token_OptionHandler(IN CHAR16 *SourceBuffer, OUT CommandToken *Token,
     UINTN StrBack = 0;
     UINTN StrFront = 0;
     EFI_STATUS Status;
-
-    /*
-    for(; StrFront < StrLen(SourceBuffer) + 1; StrFront++) {
-        if(SourceBuffer[StrFront] == L'-') break;
-    }
-    */
 
     if(!StrnCmp(SourceBuffer + StrFront, L"--", 2)) {
         StrFront += 2;
@@ -208,6 +214,7 @@ EFI_STATUS Token_OptionHandler(IN CHAR16 *SourceBuffer, OUT CommandToken *Token,
         if(SourceBuffer[StrBack] == L'\0' && StrBack == StrFront) return RETURN_INVALID_PARAMETER;
         }
         Token->TokenType = TOKENTYPE_OPTION_LONG;
+        StrBack += 2;  //for L'--'
     }
     
     else {
@@ -227,12 +234,86 @@ EFI_STATUS Token_OptionHandler(IN CHAR16 *SourceBuffer, OUT CommandToken *Token,
         if(SourceBuffer[StrBack] == L'\0' && StrBack == StrFront) return RETURN_INVALID_PARAMETER;
         }
         Token->TokenType = TOKENTYPE_OPTION_SHORT;
+        StrBack++;  //for L'-'
     }
     Print(L"Return Pointer vaule : %d\r\n", StrBack - StrFront);
     *Next = StrBack - StrFront;
+    Token->TokenKey[0] = L'\0';     //init data, but just for first.
     Token->TokenPosition = 0;
-    return EFI_SUCCESS;
+    return RETURN_SUCCESS;
 }
+
+
+EFI_STATUS SBU_TokenAssembler(IN SBU *This, IN CommandToken *TokenArray, IN UINTN TokenMaxAmount, OUT CommandContainer *TokenContainer) {
+    if(TokenMaxAmount) return RETURN_INVALID_PARAMETER;
+    if(TokenArray == NULL || TokenContainer == NULL) return RETURN_INVALID_PARAMETER;
+    if(TokenArray[0].TokenType != TOKENTYPE_COMMAND) return RETURN_INVALID_PARAMETER;
+
+    UINTN ArgumentCount = 0;
+    UINTN OptionCount = 0;
+    EFI_STATUS Status;
+
+    //check token type except : COMMAND
+    for(UINTN i = 0; i < TokenMaxAmount; i++) {
+        if(TokenArray[i].TokenType == TOKENTYPE_ARGUMENT) ArgumentCount++;
+        if(TokenArray[i].TokenType == TOKENTYPE_OPTION_SHORT ||
+            TokenArray[i].TokenType == TOKENTYPE_OPTION_LONG) OptionCount++;
+    }
+
+    //allocate heap, this will NOT be free in this function (which is OUT pointer)
+    ArgumentToken *TempArgument = AllocateZeroPool(ArgumentCount);
+    OptionToken *TempOption = AllocateZeroPool(OptionCount);
+
+    if(TempArgument == NULL || TempOption == NULL) return RETURN_ABORTED;
+
+    for(UINTN i = 0; i < ArgumentCount; i++) {
+        Status = ArgumentAssembler(TokenArray, TokenMaxAmount, ArgumentCount, TempArgument);
+        if(EFI_ERROR(Status)) return Status;
+    }
+
+    for(UINTN i = 0; i < OptionCount; i++) {
+        //do function
+    }
+
+    //set TokenContainer
+    TokenContainer->CommandName = TokenArray[0].Token;
+    TokenContainer->OptionArray = TempOption;
+    TokenContainer->OptionAmount = OptionCount;
+    TokenContainer->ArgumentArray = TempArgument;
+    TokenContainer->ArgumentAmount = ArgumentCount;
+
+    TempArgument = NULL;
+    TempOption = NULL;
+    return RETURN_SUCCESS;
+}
+
+EFI_STATUS ArgumentAssembler(IN CommandToken *TokenArray, IN UINTN TokenMaxAmount, IN UINTN ArgumentCount, OUT ArgumentToken *ArgumentArray) {
+    if(TokenMaxAmount || ArgumentCount) return RETURN_INVALID_PARAMETER;
+    if(TokenArray == NULL || ArgumentArray == NULL) return RETURN_INVALID_PARAMETER;
+    EFI_STATUS Status;
+
+    for(UINTN i = 0; i < TokenMaxAmount; i++) {
+        if(TokenArray[i].TokenType == TOKENTYPE_ARGUMENT) {
+            ArgumentArray[i].ArgumentType = 1;  //always 1 when it is in command line
+            ArgumentArray[i].TokenPosition = TokenArray[i].TokenPosition;
+            Status = StrCpyS(ArgumentArray[i].Value, MAX_TOKEN_STRING, TokenArray[i].Token);
+            if(EFI_ERROR(Status)) return Status;
+            if(ArgumentCount == i) break;
+        }
+    }
+    return RETURN_SUCCESS;
+}
+
+EFI_STATUS OptionAssembler(IN CommandToken *TokenArray, IN UINTN TokenMaxAmount, OUT UINTN OptionCount, OUT ArgumentToken *OptionArray) {
+    if(TokenArray == NULL || OptionArray == NULL) return RETURN_INVALID_PARAMETER;
+    if(TokenMaxAmount || OptionCount) return RETURN_INVALID_PARAMETER;
+    //EFI_STATUS Status;
+
+    //do something
+
+    return RETURN_SUCCESS;
+}
+
 
 EFI_STATUS SBU_WhoamI(IN SBU *This) {
     Print(L"This shell is part of Custom EFI Boot Service\r\nMade by Jack::ZeroCP\r\n");
@@ -246,6 +327,7 @@ EFI_STATUS SBU_InitializeLib(IN SBU *This)
     This->ShutdownCommand = SBU_Shutdown;
     This->WhoamI = SBU_WhoamI;
     This->TokenHandler = SBU_TokenHandler; 
+    This->TokenAssembler = SBU_TokenAssembler;
 
     return EFI_SUCCESS;
 }
