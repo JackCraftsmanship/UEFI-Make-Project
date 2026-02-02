@@ -138,7 +138,7 @@ EFI_STATUS SBU_TokenHandler(IN SBU *This, IN CHAR16 *SourceBuffer, IN UINTN Toke
             }
             StrFront += CharLength;
             Print(L"Parsing End with : %d\r\n Next Char : \'%c\'\r\n", StrFront, SourceBuffer[StrFront]);
-            if(SourceBuffer[StrFront] != L' ') return RETURN_INVALID_PARAMETER;
+            if(SourceBuffer[StrFront] != L' ' && SourceBuffer[StrFront] != L'\0') return RETURN_INVALID_PARAMETER;
             StrFront--;
             Token[index].TokenPosition = index;
             index++;

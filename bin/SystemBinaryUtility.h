@@ -157,15 +157,9 @@ struct _System_Binary_Utility {
      * Internal Option Handler for handle Option in command.
      * @note Currently not vaild
      * @param This self
-<<<<<<< HEAD
-     * @param SourceBuffer Command line Buffer
-     * @param TokenMaxAmount Token amount, it determined by the (OptionAmount + ArgumentAmount + 1) in CommandContainer
-     * @param Token Actual Token Array, MUST same amount as TokenMaxAmount does
-=======
      * @param SourceBuffer The Source string, it is not parsing the CommandToken
      * @param TokenMaxAmount Max amount tokens that Token Array can handle
      * @param Token Token Array
->>>>>>> OptionChange
      * @return When Error, return EFI_ERROR, when Normal, return EFI_SUCCESS
      */
     EFI_STATUS (*TokenHandler)(
