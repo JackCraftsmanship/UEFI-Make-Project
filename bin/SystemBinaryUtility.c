@@ -141,6 +141,14 @@ EFI_STATUS SBU_TokenHandler(IN SBU *This, IN CHAR16 *SourceBuffer, IN UINTN Toke
     return EFI_SUCCESS;
 }
 
+/*
+이전의 방식 : L" "을 엔트리로 사용되는 함수 Token_ArgumentHandler
+변경 -> L" "를 기준으로 사용이 되지만, 다음의 문자가 L'\"', L' ', L'\0' 인지 확인하는 함수 생성,
+if first : 다음 L'\"'를 찾을 때 까지 진행, 만약 L'\0'이 있으면 에러 보내고 종료.
+if second : 다음 L' 'fmf 찾을 때 까지 진행, 만약 L'\"', L'\0'이 있으면 에러 보내고 종료.
+if third : 파싱할 것이 없음, 종료.
+*/
+
 EFI_STATUS Token_ArgumentHandler(IN CHAR16 *SourceBuffer, OUT CommandToken *Token, OUT UINTN *Next) {
     if(StrSize(SourceBuffer) == 0) return RETURN_BAD_BUFFER_SIZE;
     if(SourceBuffer[0] == L'\0') return RETURN_BAD_BUFFER_SIZE;
