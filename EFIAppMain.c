@@ -39,22 +39,29 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* sysTab
         //reset command here;
 
         if(!StrnCmp(input_buffer, L"test", 4)) {
-            CommandToken Token1;
-            StrCpyS(Token1.Token, MAX_TOKEN_STRING, L"test");
-            Token1.TokenKey[0] = L'\0';
-            Token1.TokenPosition = 0;
-            Token1.TokenType = TOKENTYPE_COMMAND;
-
+            LIST_ENTRY *TokenArrayEntry;
+            InitializeListHead(TokenArrayEntry);
             EFI_STATUS Status;
 
-            CommandToken TokenBuffer[5];
-            TokenBuffer[0] = Token1;
-            
-            Status = shell.TokenHandler(&shell, (input_buffer + 4), 5, TokenBuffer);
-            if(EFI_ERROR(Status)) Print(L"Token Parsing Failed with %d\r\n", Status);
+            Status = SBU_TokenHandler(&shell, input_buffer + 4, 5, TokenArrayEntry);
+            if(EFI_ERROR(Status)) {
+                Print(L"Token Parsing FAILED with code %d\r\n", Status);
+            }
+            else Print(L"Token Parsing SUCCESS\r\n");
 
-            for(int i = 0; i < 5; i++) {
-                Print(L"Token %d Parsed : %s, %d\r\n", TokenBuffer[i].TokenPosition, TokenBuffer[i].Token, TokenBuffer[i].TokenType);
+            if(IsListEmpty(TokenArrayEntry)) {
+                Print(L"!! TokenArrayEntry is Empty !!\r\n");
+            } else {
+                CommandToken *TokenParsed;
+                LIST_ENTRY *Link_Entered;
+                InitializeListHead(Link_Entered);
+
+                for (Link_Entered = GetFirstNode (TokenArrayEntry); !IsNull (TokenArrayEntry, Link_Entered); 
+                        Link_Entered = GetNextNode (TokenArrayEntry, Link_Entered)) {
+                    TokenParsed = BASE_CR(Link_Entered, CommandToken, Link);
+                    Print(L"Parsed Data : %s  ", TokenParsed->Token);
+                    Print(L"Parsed Data index : %d\r\n", TokenParsed->TokenPosition);
+                }
             }
         }
 

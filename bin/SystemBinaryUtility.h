@@ -163,15 +163,15 @@ struct _System_Binary_Utility {
      * @note Currently not vaild
      * @param This self
      * @param SourceBuffer The Source string, it is not parsing the CommandToken
-     * @param TokenMaxAmount Max amount tokens that Token Array can handle
-     * @param TokenPointer Token Array Pointer
+     * @param TokenMaxAmount Max amount tokens that Token Array can handle, 0 for infinite amount
+     * @param TokenArrayPointer Token Array Pointer
      * @return When Error, return EFI_ERROR, when Normal, return EFI_SUCCESS
      */
     EFI_STATUS (*TokenHandler)(
         IN SBU *This,
         IN CHAR16 *SourceBuffer,
         IN UINTN TokenMaxAmount,
-        OUT CommandToken *TokenPointer
+        IN OUT LIST_ENTRY *TokenArrayPointer
     );
 
     /** This is Part of _System_Binary_Utility or SBU, 
@@ -206,9 +206,11 @@ EFI_STATUS SBU_ReBoot(IN SBU *This, IN CHAR16 *Option);
 
 EFI_STATUS SBU_Shutdown(IN SBU *This);
 
-EFI_STATUS SBU_TokenHandler(IN SBU *This, IN CHAR16 *SourceBuffer, IN UINTN TokenMaxAmount, OUT CommandToken *TokenPointer);
-EFI_STATUS Token_ArgumentHandler(IN CHAR16 *SourceBuffer, OUT LIST_ENTRY *Token, OUT UINTN *Next);
-EFI_STATUS Token_OptionHandler(IN CHAR16 *SourceBuffer, OUT LIST_ENTRY *Token, OUT UINTN *Next);
+EFI_STATUS SBU_TokenHandler(IN SBU *This, IN CHAR16 *SourceBuffer, IN UINTN TokenMaxAmount, IN OUT LIST_ENTRY *TokenArrayPointer);
+EFI_STATUS Token_ArgumentHandler(IN CHAR16 *SourceBuffer, IN OUT CommandToken *Token, OUT UINTN *Next);
+EFI_STATUS Token_OptionHandler(IN CHAR16 *SourceBuffer, IN OUT CommandToken *Token, OUT UINTN *Next);
+
+VOID Token_List_Destructor(IN LIST_ENTRY *ListEntryPointer, IN CommandToken *RemainToken);
 
 EFI_STATUS SBU_TokenAssembler(IN SBU *This, IN CommandToken *TokenArray, IN UINTN TokenMaxAmount, OUT CommandContainer *TokenContainer);
 EFI_STATUS ArgumentAssembler(IN CommandToken *TokenArray, IN UINTN TokenMaxAmount, IN UINTN ArgumentCount, OUT ArgumentToken *ArgumentArray);
