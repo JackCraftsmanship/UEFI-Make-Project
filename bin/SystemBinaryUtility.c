@@ -110,7 +110,8 @@ EFI_STATUS SBU_Shutdown(IN SBU *This) {
 
 /*
 토큰을 사용자 지정 연결 리스트 객체로 만들어서 관리하는 것이 적합.
-그렇기에 연결 리스트를 위한 별도의 파일을 만들 것.
+그렇기에 연결 리스트를 위한 별도의 파일을 만들 것. 
+ -> EDK2 제공 이중 환형 연결 리스트 사용할 것임.
 */
 
 EFI_STATUS SBU_TokenHandler(IN SBU *This, IN CHAR16 *SourceBuffer, IN UINTN TokenMaxAmount, OUT CommandToken *Token) {
