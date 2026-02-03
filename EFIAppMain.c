@@ -43,7 +43,7 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* sysTab
             InitializeListHead(TokenArrayEntry);
             EFI_STATUS Status;
 
-            Status = SBU_TokenHandler(&shell, input_buffer + 4, 5, TokenArrayEntry);
+            Status = SBU_TokenHandler(&shell, input_buffer + 4, 0, TokenArrayEntry);
             if(EFI_ERROR(Status)) {
                 Print(L"Token Parsing FAILED with code %d\r\n", Status);
             }
@@ -52,9 +52,9 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* sysTab
             if(IsListEmpty(TokenArrayEntry)) {
                 Print(L"!! TokenArrayEntry is Empty !!\r\n");
             } else {
+                Print(L"Show : \r\n");
                 CommandToken *TokenParsed;
                 LIST_ENTRY *Link_Entered;
-                InitializeListHead(Link_Entered);
 
                 for (Link_Entered = GetFirstNode (TokenArrayEntry); !IsNull (TokenArrayEntry, Link_Entered); 
                         Link_Entered = GetNextNode (TokenArrayEntry, Link_Entered)) {
@@ -62,7 +62,10 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* sysTab
                     Print(L"Parsed Data : %s  ", TokenParsed->Token);
                     Print(L"Parsed Data index : %d\r\n", TokenParsed->TokenPosition);
                 }
+                TokenParsed = NULL;
+                Link_Entered = NULL;
             }
+            Token_List_Destructor(TokenArrayEntry);
         }
 
         if(!StrCmp(input_buffer, L"Shutdown") || !StrCmp(input_buffer, L"shutdown")) {

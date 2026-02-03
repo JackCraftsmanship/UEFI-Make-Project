@@ -170,20 +170,21 @@ EFI_STATUS SBU_TokenHandler(IN SBU *This, IN CHAR16 *SourceBuffer, IN UINTN Toke
 
 TOKENHANDLER_FAILSAFE:
     Print(L"Error Occured... Activate FailSafe : Delete All\r\n");
-    Token_List_Destructor(ListInitHead, TokenNode);
+    Token_List_Destructor(ListInitHead);
+    if(TokenNode != NULL) {
+        if (TokenNode->Token != NULL) {
+            FreePool (TokenNode->Token);
+        }
+
+        if (TokenNode->TokenKey != NULL) {
+            FreePool (TokenNode->TokenKey);
+        }
+    }
     return Status;
 }
 
-VOID Token_List_Destructor(IN LIST_ENTRY *ListEntryPointer, IN CommandToken *RemainToken) {
-    //delete Remain token first
-    if (RemainToken->Token != NULL) {
-        FreePool (RemainToken->Token);
-    }
-
-    if (RemainToken->TokenKey != NULL) {
-        FreePool (RemainToken->TokenKey);
-    }
-    
+VOID Token_List_Destructor(IN LIST_ENTRY *ListEntryPointer) {
+   
     if (ListEntryPointer == NULL) return;
     LIST_ENTRY          *CurrentLink;
     LIST_ENTRY          *NextLink;
