@@ -110,135 +110,211 @@ EFI_STATUS SBU_Shutdown(IN SBU *This) {
 
 /*
 토큰을 사용자 지정 연결 리스트 객체로 만들어서 관리하는 것이 적합.
-그렇기에 연결 리스트를 위한 별도의 파일을 만들 것.
+그렇기에 연결 리스트를 위한 별도의 파일을 만들 것. 
+ -> EDK2 제공 이중 환형 연결 리스트 사용할 것임.
 */
 
-EFI_STATUS SBU_TokenHandler(IN SBU *This, IN CHAR16 *SourceBuffer, IN UINTN TokenMaxAmount, OUT CommandToken *Token) {
+EFI_STATUS SBU_TokenHandler(IN SBU *This, IN CHAR16 *SourceBuffer, IN UINTN TokenMaxAmount, IN OUT LIST_ENTRY *TokenArrayPointer) {
     if(StrSize(SourceBuffer) == 0) return RETURN_BAD_BUFFER_SIZE;
     if(SourceBuffer[0] == L'\0') return RETURN_BAD_BUFFER_SIZE;
-    if(Token == NULL) return RETURN_INVALID_PARAMETER;
+    //if(TokenArrayPointer != NULL) return RETURN_ACCESS_DENIED;      //can occure Dangling pointer problem
 
     UINTN StrFront = 0;
     UINTN CharLength = 0;
     UINTN index = 1;
     UINTN StrLength = StrLen(SourceBuffer) + 1;
+
+    LIST_ENTRY *ListInitHead;
+    InitializeListHead(ListInitHead);
+
+    CommandToken *TokenNode;
     EFI_STATUS Status;
 
     for(; StrFront < StrLength; StrFront++) {
+        //add TokenNode Pool to heap
+        TokenNode = AllocateZeroPool(sizeof(CommandToken));
+        if(TokenNode == NULL) return RETURN_LOAD_ERROR;
+
+        //CK string
         if(SourceBuffer[StrFront] == L'\0') return RETURN_SUCCESS;
         if(SourceBuffer[StrFront] == L' ') {
             if (SourceBuffer[StrFront + 1] == L'\0') return RETURN_SUCCESS;
             StrFront++;
+            Print(L"\r\n");
             if(SourceBuffer[StrFront + 1] == L'-') {
-                Status = Token_OptionHandler(SourceBuffer + StrFront, &Token[index], &CharLength);
-                if(EFI_ERROR(Status)) return Status;
+                Print(L"Token Parsing start : index = %d\r\n", index);
+                Status = Token_OptionHandler(SourceBuffer + StrFront, TokenNode, &CharLength);
+                if(EFI_ERROR(Status)) goto TOKENHANDLER_FAILSAFE;
             } else if(SourceBuffer[StrFront + 1] != L' ') {
-                Status = Token_ArgumentHandler(SourceBuffer + StrFront, &Token[index], &CharLength);
-                if(EFI_ERROR(Status)) return Status;
+                Print(L"Token Parsing start : index = %d\r\n", index);
+                Status = Token_ArgumentHandler(SourceBuffer + StrFront, TokenNode, &CharLength);
+                if(EFI_ERROR(Status)) goto TOKENHANDLER_FAILSAFE;
             }
             StrFront += CharLength;
             Print(L"Parsing End with : %d\r\n Next Char : \'%c\'\r\n", StrFront, SourceBuffer[StrFront]);
             if(SourceBuffer[StrFront] != L' ' && SourceBuffer[StrFront] != L'\0') return RETURN_INVALID_PARAMETER;
             StrFront--;
-            Token[index].TokenPosition = index;
+            TokenNode->TokenPosition = index;
+            TokenNode->Signature = C_Token_Signature;
+
+            InsertTailList(ListInitHead, &TokenNode->Link);
+
             index++;
         }
-        if(index >= TokenMaxAmount) return RETURN_SUCCESS;
+        if(TokenMaxAmount != 0 && index >= TokenMaxAmount) return RETURN_SUCCESS;
     }
+
+    TokenArrayPointer = ListInitHead;
+    ListInitHead = NULL;
     return RETURN_SUCCESS;
+
+TOKENHANDLER_FAILSAFE:
+    Print(L"Error Occured... Activate FailSafe : Delete All\r\n");
+    Token_List_Destructor(ListInitHead, TokenNode);
+    return Status;
 }
 
-EFI_STATUS Token_ArgumentHandler(IN CHAR16 *SourceBuffer, OUT CommandToken *Token, OUT UINTN *Next) {
+VOID Token_List_Destructor(IN LIST_ENTRY *ListEntryPointer, IN CommandToken *RemainToken) {
+    //delete Remain token first
+    if (RemainToken->Token != NULL) {
+        FreePool (RemainToken->Token);
+    }
+
+    if (RemainToken->TokenKey != NULL) {
+        FreePool (RemainToken->TokenKey);
+    }
+    
+    if (ListEntryPointer == NULL) return;
+    LIST_ENTRY          *CurrentLink;
+    LIST_ENTRY          *NextLink;
+    CommandToken        *Entry;
+
+    CurrentLink = GetFirstNode (ListEntryPointer);
+        
+    while (!IsNull (ListEntryPointer, CurrentLink)) {
+
+        //get next and delete all inside
+        NextLink = GetNextNode (ListEntryPointer, CurrentLink);
+        Entry = BASE_CR (CurrentLink, CommandToken ,Link);
+
+        if (Entry->Token != NULL) {
+        FreePool (Entry->Token);
+        }
+
+        if (Entry->TokenKey != NULL) {
+        FreePool (Entry->TokenKey);
+        }
+
+        RemoveEntryList (CurrentLink);
+        FreePool (Entry);
+
+        CurrentLink = NextLink;
+    }
+    return;
+}
+
+EFI_STATUS Token_ArgumentHandler(IN CHAR16 *SourceBuffer, IN OUT CommandToken *Token, OUT UINTN *Next) {
     if(StrSize(SourceBuffer) == 0) return RETURN_BAD_BUFFER_SIZE;
     if(SourceBuffer[0] == L'\0') return RETURN_BAD_BUFFER_SIZE;
 
+    BOOLEAN TypeOfStart = FALSE;        //L'\"' == TRUE, other == FALSE
     UINTN StrBack = 0;
     UINTN StrFront = 0;
     UINTN StrLength = StrLen(SourceBuffer) + 1;
+    CHAR16 *TempString;
+    UINTN StringLength;
     EFI_STATUS Status;
 
     if(SourceBuffer[StrBack] == L'\"') {
+        StrFront++;
         StrBack++;
-        if(StrBack >= MAX_TOKEN_STRING) return RETURN_INVALID_PARAMETER;
-        if(SourceBuffer[StrBack] == L'\0' && StrBack == (StrFront + 1)) return RETURN_INVALID_PARAMETER;
+        TypeOfStart = TRUE;
         for(;StrBack < StrLength; StrBack++) {
+            if(SourceBuffer[StrBack] == L'\0' && StrBack == (StrFront + 1)) return RETURN_INVALID_PARAMETER;
             if(SourceBuffer[StrBack] == L'\"') {
-                Status = StrnCpyS(Token->Token, MAX_TOKEN_STRING, (SourceBuffer + StrFront + 1), (StrBack - StrFront - 1));
-                if(EFI_ERROR(Status)) return Status;
+                StringLength = StrBack - StrFront + 1;      //for NOT COPY end character : L'\"'
                 break;
             }
-            if(StrBack >= MAX_TOKEN_STRING) return RETURN_INVALID_PARAMETER;
-            if(SourceBuffer[StrBack] == L'\0' && StrBack == (StrFront + 1)) return RETURN_INVALID_PARAMETER;
         }
-        StrBack++;      //for end character : L'\"'
     } else {
         for(;StrBack < StrLength; StrBack++) {
             if(SourceBuffer[StrBack] == L' ' || SourceBuffer[StrBack] == L'\0') {
-                Status = StrnCpyS(Token->Token, MAX_TOKEN_STRING, SourceBuffer + StrFront, StrBack - StrFront);
-                if(EFI_ERROR(Status)) return Status;
+                StringLength = StrBack - StrFront + 1;
                 break;
             }
         }
     }
-    Token->TokenKey[0] = L'\0';     //init data, but just for first.
+
+    TempString = AllocateZeroPool(StringLength);
+    if(TempString == NULL) return RETURN_LOAD_ERROR;
+
+    Status = StrnCpyS(TempString, StringLength, SourceBuffer + StrFront, StringLength - 1);
+    if(EFI_ERROR(Status)) {
+        FreePool(TempString);
+        return Status;
+    }
+    Token->Token = TempString;
+    TempString = NULL;
+
+    if(TypeOfStart) StrBack += 2;    //for two L'\"'
+
+    Token->TokenKey = L"0000\0";     //init data, but just for first.
     Token->TokenType = TOKENTYPE_ARGUMENT;
     Token->TokenPosition = 0;
 
-    Print(L"Return Pointer vaule : %d\r\n", StrBack - StrFront);
     *Next = StrBack - StrFront;
     return RETURN_SUCCESS;
 }
 
-EFI_STATUS Token_OptionHandler(IN CHAR16 *SourceBuffer, OUT CommandToken *Token, OUT UINTN *Next) {
+EFI_STATUS Token_OptionHandler(IN CHAR16 *SourceBuffer, IN OUT CommandToken *Token, OUT UINTN *Next) {
     if(StrSize(SourceBuffer) == 0) return RETURN_BAD_BUFFER_SIZE;
     if(SourceBuffer[0] == L'\0') return RETURN_BAD_BUFFER_SIZE;
 
+    UINTN TypeOfStart = FALSE;      //L"--" == TRUE, L'-' == FALSE
     UINTN StrBack = 0;
     UINTN StrFront = 0;
+    UINTN StrLength = StrLen(SourceBuffer) + 1;
+    CHAR16 *TempString;
+    UINTN StringLength;
     EFI_STATUS Status;
 
     if(!StrnCmp(SourceBuffer + StrFront, L"--", 2)) {
+        TypeOfStart = TRUE;
         StrFront += 2;
-        StrBack = StrFront;
-        if(SourceBuffer[StrBack] == L'\0' || SourceBuffer[StrBack] == L' ') return RETURN_INVALID_PARAMETER;
+    } else StrFront += 1;
 
-        StrBack++;
-        while(TRUE) {
+    StrBack = StrFront;
+    if(SourceBuffer[StrBack] == L'\0' || SourceBuffer[StrBack] == L' ') return RETURN_INVALID_PARAMETER;
+    StrBack++;
+
+    for(;StrBack < StrLength; StrBack++) {
         if(SourceBuffer[StrBack] == L'\0' || SourceBuffer[StrBack] == L' ') {
-            Status = StrnCpyS(Token->Token, MAX_TOKEN_STRING, SourceBuffer + StrFront, StrBack - StrFront);
-            if(EFI_ERROR(Status)) return Status;
+            StringLength = StrBack - StrFront + 1;
             break;
         }
-        StrBack++;
-        if(StrBack >= MAX_TOKEN_STRING) return RETURN_INVALID_PARAMETER;
-        if(SourceBuffer[StrBack] == L'\0' && StrBack == StrFront) return RETURN_INVALID_PARAMETER;
-        }
-        Token->TokenType = TOKENTYPE_OPTION_LONG;
-        StrBack += 2;  //for L'--'
     }
-    
-    else {
-        StrFront += 1;
-        StrBack = StrFront;
-        if(SourceBuffer[StrBack] == L'\0' || SourceBuffer[StrBack] == L' ') return RETURN_INVALID_PARAMETER;
 
-        StrBack++;
-        while(TRUE) {
-        if(SourceBuffer[StrBack] == L'\0' || SourceBuffer[StrBack] == L' ') {
-            Status = StrnCpyS(Token->Token, MAX_TOKEN_STRING, SourceBuffer + StrFront, StrBack - StrFront);
-            if(EFI_ERROR(Status)) return Status;
-            break;
-        }
-        StrBack++;
-        if(StrBack >= MAX_TOKEN_STRING) return RETURN_INVALID_PARAMETER;
-        if(SourceBuffer[StrBack] == L'\0' && StrBack == StrFront) return RETURN_INVALID_PARAMETER;
-        }
+    TempString = AllocateZeroPool(StringLength);
+    if(TempString == NULL) return RETURN_LOAD_ERROR;
+
+    Status = StrnCpyS(TempString, StringLength, SourceBuffer + StrFront, StringLength - 1);
+    if(EFI_ERROR(Status)) {
+        FreePool(TempString);
+        return Status;
+    }
+    Token->Token = TempString;
+    TempString = NULL;
+
+    if(TypeOfStart) {
+        Token->TokenType = TOKENTYPE_OPTION_LONG;
+        StrBack += 2;  //for L'-'
+    } else {
         Token->TokenType = TOKENTYPE_OPTION_SHORT;
         StrBack++;  //for L'-'
     }
-    Print(L"Return Pointer vaule : %d\r\n", StrBack - StrFront);
+
     *Next = StrBack - StrFront;
-    Token->TokenKey[0] = L'\0';     //init data, but just for first.
+    Token->TokenKey = L"0000\0";     //init data, but just for first.
     Token->TokenPosition = 0;
     return RETURN_SUCCESS;
 }

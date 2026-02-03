@@ -5,6 +5,7 @@
 #include <Library/UefiLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/MemoryAllocationLib.h>
+#include <Library/BaseLib.h>
 
 #define ShortOption "-"
 #define LongOption "--"
@@ -33,10 +34,14 @@
  * It hold ONE token, and it's position in command line.
  * It will send to Command program for further use.
  */
+#define C_Token_Signature SIGNATURE_32('T', 'K', 'C', 'L')
+
 typedef struct C_Token{
+    UINT32 Signature;                   //Token Signature Verifier
+    LIST_ENTRY Link;                    //List Link data for EDK2 DL-R-List
     UINTN TokenType;                    //can accept : TOKENTYPE_*
-    CHAR16 *TokenKey;  //Token identifier for Argument identifier, when first == L'\0', ignored
-    CHAR16 Token[MAX_TOKEN_STRING];     //actual token
+    CHAR16 *TokenKey;                   //Token identifier for Argument identifier, when first == L'\0', ignored
+    CHAR16 *Token;                      //actual token
     UINTN TokenPosition;                //position of token
 } CommandToken;
 
@@ -158,15 +163,15 @@ struct _System_Binary_Utility {
      * @note Currently not vaild
      * @param This self
      * @param SourceBuffer The Source string, it is not parsing the CommandToken
-     * @param TokenMaxAmount Max amount tokens that Token Array can handle
-     * @param Token Token Array
+     * @param TokenMaxAmount Max amount tokens that Token Array can handle, 0 for infinite amount
+     * @param TokenArrayPointer Token Array Pointer
      * @return When Error, return EFI_ERROR, when Normal, return EFI_SUCCESS
      */
     EFI_STATUS (*TokenHandler)(
         IN SBU *This,
         IN CHAR16 *SourceBuffer,
         IN UINTN TokenMaxAmount,
-        OUT CommandToken *Token
+        IN OUT LIST_ENTRY *TokenArrayPointer
     );
 
     /** This is Part of _System_Binary_Utility or SBU, 
@@ -201,9 +206,11 @@ EFI_STATUS SBU_ReBoot(IN SBU *This, IN CHAR16 *Option);
 
 EFI_STATUS SBU_Shutdown(IN SBU *This);
 
-EFI_STATUS SBU_TokenHandler(IN SBU *This, IN CHAR16 *SourceBuffer, IN UINTN TokenMaxAmount, OUT CommandToken *Token);
-EFI_STATUS Token_ArgumentHandler(IN CHAR16 *SourceBuffer, OUT CommandToken *Token, OUT UINTN *Next);
-EFI_STATUS Token_OptionHandler(IN CHAR16 *SourceBuffer, OUT CommandToken *Token, OUT UINTN *Next);
+EFI_STATUS SBU_TokenHandler(IN SBU *This, IN CHAR16 *SourceBuffer, IN UINTN TokenMaxAmount, IN OUT LIST_ENTRY *TokenArrayPointer);
+EFI_STATUS Token_ArgumentHandler(IN CHAR16 *SourceBuffer, IN OUT CommandToken *Token, OUT UINTN *Next);
+EFI_STATUS Token_OptionHandler(IN CHAR16 *SourceBuffer, IN OUT CommandToken *Token, OUT UINTN *Next);
+
+VOID Token_List_Destructor(IN LIST_ENTRY *ListEntryPointer, IN CommandToken *RemainToken);
 
 EFI_STATUS SBU_TokenAssembler(IN SBU *This, IN CommandToken *TokenArray, IN UINTN TokenMaxAmount, OUT CommandContainer *TokenContainer);
 EFI_STATUS ArgumentAssembler(IN CommandToken *TokenArray, IN UINTN TokenMaxAmount, IN UINTN ArgumentCount, OUT ArgumentToken *ArgumentArray);
