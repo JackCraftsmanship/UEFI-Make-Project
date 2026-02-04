@@ -209,7 +209,7 @@ EFI_STATUS SBU_Shutdown(IN SBU *This);
 
 EFI_STATUS SBU_TokenHandler(IN SBU *This, IN CHAR16 *SourceBuffer, IN UINTN TokenMaxAmount, IN OUT LIST_ENTRY *TokenArrayPointer);
 EFI_STATUS Token_ArgumentHandler(IN CHAR16 *SourceBuffer, IN OUT CommandToken *Token, OUT UINTN *Next, IN UINTN ArgumentType);
-EFI_STATUS Token_OptionHandler(IN CHAR16 *SourceBuffer, IN OUT CommandToken *Token, OUT UINTN *Next);
+EFI_STATUS Token_OptionHandler(IN CHAR16 *SourceBuffer, IN OUT CommandToken *Token, OUT UINTN *Next, IN UINTN ArgumentType);
 
 VOID Token_List_Destructor(IN LIST_ENTRY *ListEntryPointer);
 
