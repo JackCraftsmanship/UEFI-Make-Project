@@ -139,20 +139,36 @@ EFI_STATUS SBU_TokenHandler(IN SBU *This, IN CHAR16 *SourceBuffer, IN UINTN Toke
         if(SourceBuffer[StrFront] == L'\0') return RETURN_SUCCESS;
         if(SourceBuffer[StrFront] == L' ') {
             if (SourceBuffer[StrFront + 1] == L'\0') return RETURN_SUCCESS;
-            StrFront++;
-            Print(L"\r\n");
-            if(SourceBuffer[StrFront + 1] == L'-') {
+            if (SourceBuffer[StrFront + 1] == L'=') goto SKIP_FOR_1;
+            StrFront++;     //skip L' '
+            if(SourceBuffer[StrFront] == L'-') {
                 Print(L"Token Parsing start : index = %d\r\n", index);
                 Status = Token_OptionHandler(SourceBuffer + StrFront, TokenNode, &CharLength);
                 if(EFI_ERROR(Status)) goto TOKENHANDLER_FAILSAFE;
-            } else if(SourceBuffer[StrFront + 1] != L' ') {
+            } else if(SourceBuffer[StrFront] != L' ') {
                 Print(L"Token Parsing start : index = %d\r\n", index);
-                Status = Token_ArgumentHandler(SourceBuffer + StrFront, TokenNode, &CharLength);
+                Status = Token_ArgumentHandler(SourceBuffer + StrFront, TokenNode, &CharLength, TOKENTYPE_ARGUMENT);
                 if(EFI_ERROR(Status)) goto TOKENHANDLER_FAILSAFE;
             }
             StrFront += CharLength;
             Print(L"Parsing End with : %d\r\n Next Char : \'%c\'\r\n", StrFront, SourceBuffer[StrFront]);
-            if(SourceBuffer[StrFront] != L' ' && SourceBuffer[StrFront] != L'\0') return RETURN_INVALID_PARAMETER;
+            StrFront--;
+            TokenNode->TokenPosition = index;
+            TokenNode->Signature = C_Token_Signature;
+
+            InsertTailList(ListInitHead, &TokenNode->Link);
+
+            index++;
+        } else if(SourceBuffer[StrFront] == L'=') {
+            SKIP_FOR_1:
+            if(index <= 1) return RETURN_INVALID_PARAMETER;
+            if(SourceBuffer[StrFront] == L'-') return RETURN_INVALID_PARAMETER;
+            Print(L"Addition Token Parsing start : index = %d\r\n", index);
+            Status = Token_ArgumentHandler(SourceBuffer + StrFront, TokenNode, &CharLength, TOKENTYPE_ADDITION_ARGUMENT);
+            if(EFI_ERROR(Status)) goto TOKENHANDLER_FAILSAFE;
+
+            StrFront += CharLength;
+            Print(L"Parsing End with : %d\r\n Next Char : \'%c\'\r\n", StrFront, SourceBuffer[StrFront]);
             StrFront--;
             TokenNode->TokenPosition = index;
             TokenNode->Signature = C_Token_Signature;
@@ -161,7 +177,8 @@ EFI_STATUS SBU_TokenHandler(IN SBU *This, IN CHAR16 *SourceBuffer, IN UINTN Toke
 
             index++;
         }
-        if(TokenMaxAmount != 0 && index >= TokenMaxAmount) return RETURN_SUCCESS;
+        else if(TokenMaxAmount != 0 && index >= TokenMaxAmount) return RETURN_SUCCESS;
+        else return RETURN_INVALID_PARAMETER;
     }
 
     TokenArrayPointer = ListInitHead;
@@ -214,11 +231,11 @@ VOID Token_List_Destructor(IN LIST_ENTRY *ListEntryPointer) {
     return;
 }
 
-EFI_STATUS Token_ArgumentHandler(IN CHAR16 *SourceBuffer, IN OUT CommandToken *Token, OUT UINTN *Next) {
+EFI_STATUS Token_ArgumentHandler(IN CHAR16 *SourceBuffer, IN OUT CommandToken *Token, OUT UINTN *Next, IN UINTN ArgumentType) {
     if(StrSize(SourceBuffer) == 0) return RETURN_BAD_BUFFER_SIZE;
     if(SourceBuffer[0] == L'\0') return RETURN_BAD_BUFFER_SIZE;
 
-    BOOLEAN TypeOfStart = FALSE;        //L'\"' == TRUE, other == FALSE
+    UINT8 TypeOfStart = 0;        //other == 0, L'\"' == 1, L'=' == 2, when start with L'=' and contain L'\"' == 3
     UINTN StrBack = 0;
     UINTN StrFront = 0;
     UINTN StrLength = StrLen(SourceBuffer) + 1;
@@ -226,12 +243,19 @@ EFI_STATUS Token_ArgumentHandler(IN CHAR16 *SourceBuffer, IN OUT CommandToken *T
     UINTN StringLength;
     EFI_STATUS Status;
 
+    if(SourceBuffer[StrBack] == L'=') {
+        StrFront++;
+        StrBack++;
+        if(SourceBuffer[StrBack] == L'\0') return RETURN_INVALID_PARAMETER;
+        TypeOfStart |= 2;
+    }
+
     if(SourceBuffer[StrBack] == L'\"') {
         StrFront++;
         StrBack++;
-        TypeOfStart = TRUE;
+        if(SourceBuffer[StrBack] == L'\0') return RETURN_INVALID_PARAMETER;
+        TypeOfStart |= 1;
         for(;StrBack < StrLength; StrBack++) {
-            if(SourceBuffer[StrBack] == L'\0' && StrBack == (StrFront + 1)) return RETURN_INVALID_PARAMETER;
             if(SourceBuffer[StrBack] == L'\"') {
                 StringLength = StrBack - StrFront + 1;      //for NOT COPY end character : L'\"'
                 break;
@@ -239,7 +263,7 @@ EFI_STATUS Token_ArgumentHandler(IN CHAR16 *SourceBuffer, IN OUT CommandToken *T
         }
     } else {
         for(;StrBack < StrLength; StrBack++) {
-            if(SourceBuffer[StrBack] == L' ' || SourceBuffer[StrBack] == L'\0') {
+            if(SourceBuffer[StrBack] == L' ' || SourceBuffer[StrBack] == L'\0' || SourceBuffer[StrBack] == L'=') {
                 StringLength = StrBack - StrFront + 1;
                 break;
             }
@@ -257,10 +281,12 @@ EFI_STATUS Token_ArgumentHandler(IN CHAR16 *SourceBuffer, IN OUT CommandToken *T
     Token->Token = TempString;
     TempString = NULL;
 
-    if(TypeOfStart) StrBack += 2;    //for two L'\"'
+    if(TypeOfStart == 1) StrBack += 2;    //for two L'\"'
+    else if(TypeOfStart == 2) StrBack += 1;     //for one L'='
+    else if(TypeOfStart == 3) StrBack += 3;     //for one L'=' and two L'\"'
 
     Token->TokenKey = L"0000\0";     //init data, but just for first.
-    Token->TokenType = TOKENTYPE_ARGUMENT;
+    Token->TokenType = ArgumentType;
     Token->TokenPosition = 0;
 
     *Next = StrBack - StrFront;
@@ -289,7 +315,7 @@ EFI_STATUS Token_OptionHandler(IN CHAR16 *SourceBuffer, IN OUT CommandToken *Tok
     StrBack++;
 
     for(;StrBack < StrLength; StrBack++) {
-        if(SourceBuffer[StrBack] == L'\0' || SourceBuffer[StrBack] == L' ') {
+        if(SourceBuffer[StrBack] == L'\0' || SourceBuffer[StrBack] == L' ' || SourceBuffer[StrBack] == L'=') {
             StringLength = StrBack - StrFront + 1;
             break;
         }
@@ -308,7 +334,7 @@ EFI_STATUS Token_OptionHandler(IN CHAR16 *SourceBuffer, IN OUT CommandToken *Tok
 
     if(TypeOfStart) {
         Token->TokenType = TOKENTYPE_OPTION_LONG;
-        StrBack += 2;  //for L'-'
+        StrBack += 2;  //for L"--"
     } else {
         Token->TokenType = TOKENTYPE_OPTION_SHORT;
         StrBack++;  //for L'-'

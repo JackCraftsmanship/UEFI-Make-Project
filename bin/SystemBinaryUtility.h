@@ -46,9 +46,10 @@ typedef struct C_Token{
 } CommandToken;
 
 #define TOKENTYPE_COMMAND 0xf1
-#define TOKENTYPE_ARGUMENT 0xF2
-#define TOKENTYPE_OPTION_SHORT 0xF3
-#define TOKENTYPE_OPTION_LONG 0xF4
+#define TOKENTYPE_OPTION_SHORT 0xF2
+#define TOKENTYPE_OPTION_LONG 0xF3
+#define TOKENTYPE_ARGUMENT 0xF4
+#define TOKENTYPE_ADDITION_ARGUMENT 0xF5
 
 /*
 토큰 작성기를 이런식으로 만들기 : 
@@ -160,7 +161,7 @@ struct _System_Binary_Utility {
 
     /** This is Part of _System_Binary_Utility or SBU, 
      * Internal Option Handler for handle Option in command.
-     * @note Currently not vaild
+     * @note Tokens will be separated by this with edk2 Linked List, index = 0 will be empty now (for command)
      * @param This self
      * @param SourceBuffer The Source string, it is not parsing the CommandToken
      * @param TokenMaxAmount Max amount tokens that Token Array can handle, 0 for infinite amount
@@ -207,7 +208,7 @@ EFI_STATUS SBU_ReBoot(IN SBU *This, IN CHAR16 *Option);
 EFI_STATUS SBU_Shutdown(IN SBU *This);
 
 EFI_STATUS SBU_TokenHandler(IN SBU *This, IN CHAR16 *SourceBuffer, IN UINTN TokenMaxAmount, IN OUT LIST_ENTRY *TokenArrayPointer);
-EFI_STATUS Token_ArgumentHandler(IN CHAR16 *SourceBuffer, IN OUT CommandToken *Token, OUT UINTN *Next);
+EFI_STATUS Token_ArgumentHandler(IN CHAR16 *SourceBuffer, IN OUT CommandToken *Token, OUT UINTN *Next, IN UINTN ArgumentType);
 EFI_STATUS Token_OptionHandler(IN CHAR16 *SourceBuffer, IN OUT CommandToken *Token, OUT UINTN *Next);
 
 VOID Token_List_Destructor(IN LIST_ENTRY *ListEntryPointer);

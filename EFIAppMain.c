@@ -18,6 +18,9 @@
 
 //나중에 통합 BootService 쉘을 작성해서 모든 부트서비스 객체들을 붙일 것.
 
+CHAR16 input_buffer[MAX_BUFFER_SIZE];
+LIST_ENTRY *TokenArrayEntry;
+
 EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* sysTable)
 {
     gST = sysTable;
@@ -32,22 +35,24 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* sysTab
     Print(L"Initializing Success, Input Activate : \r\n");
 
     while (TRUE) {
-        CHAR16 input_buffer[MAX_BUFFER_SIZE];
+        //CHAR16 input_buffer[MAX_BUFFER_SIZE];
         Print(TYPOLOCATION);
         shell.ReadLine(&shell, input_buffer, MAX_BUFFER_SIZE);
 
         //reset command here;
 
         if(!StrnCmp(input_buffer, L"test", 4)) {
-            LIST_ENTRY *TokenArrayEntry;
+            //LIST_ENTRY *TokenArrayEntry;
             InitializeListHead(TokenArrayEntry);
             EFI_STATUS Status;
 
             Status = SBU_TokenHandler(&shell, input_buffer + 4, 0, TokenArrayEntry);
+            Print(L"\r\n");
             if(EFI_ERROR(Status)) {
                 Print(L"Token Parsing FAILED with code %d\r\n", Status);
+                Token_List_Destructor(TokenArrayEntry);
             }
-            else Print(L"Token Parsing SUCCESS\r\n");
+            else Print(L"Token Parsing SUCCESS\r\n");   
 
             if(IsListEmpty(TokenArrayEntry)) {
                 Print(L"!! TokenArrayEntry is Empty !!\r\n");
@@ -60,7 +65,8 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* sysTab
                         Link_Entered = GetNextNode (TokenArrayEntry, Link_Entered)) {
                     TokenParsed = BASE_CR(Link_Entered, CommandToken, Link);
                     Print(L"Parsed Data : %s  ", TokenParsed->Token);
-                    Print(L"Parsed Data index : %d\r\n", TokenParsed->TokenPosition);
+                    Print(L"index : %d  ", TokenParsed->TokenPosition);
+                    Print(L"type : %x\r\n", TokenParsed->TokenType);
                 }
                 TokenParsed = NULL;
                 Link_Entered = NULL;
