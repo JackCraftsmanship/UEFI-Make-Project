@@ -20,11 +20,14 @@
 [LibraryClasses]
   UefiApplicationEntryPoint
   UefiBootServicesTableLib
+  MemoryAllocationLib
+  FileHandleLib
   UefiLib
   BaseLib
 
 [Guids]
   gEfiFileSystemInfoGuid
+  gEfiFileInfoGuid
 
 [Ppis]
 

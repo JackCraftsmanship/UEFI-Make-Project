@@ -2,8 +2,28 @@
 #define _ZCP_UEFI_BootFileSystemUtility_
 
 #include <Uefi.h>
+#include <Library/BaseLib.h>
 #include <Library/UefiLib.h>
 #include <Library/UefiBootServicesTableLib.h>
+#include <Library/MemoryAllocationLib.h>
+#include <Library/FileHandleLib.h>
+#include <Guid/FileInfo.h>
+
+/** This is part of _Boot_File_System_Utility, which is also can use other place.
+ * It will give the store place for Directory
+ */
+typedef struct _BFSU_DirectoryHandler {
+    EFI_FILE_PROTOCOL *handler;
+    CHAR16 *absolute_path;
+} WorkingDirectory;
+
+typedef struct _BSFU_FileHandler {
+    EFI_FILE_INFO *file_info;
+    CHAR16 *absolute_path;
+    CHAR16 *Data;
+    UINT64 DataSize;
+
+} WorkingFile;
 
 /** This Object is renamed identifier of _Boot_File_System_Utility.
  * It will give the interface of File System via EFI Simple File System Protocol
@@ -13,10 +33,13 @@ typedef struct _Boot_File_System_Utility BFSU;
 
 struct _Boot_File_System_Utility {
 
-    /** This is show the current directory path on terminal.
-     * use for printing path
-     */
-    CHAR16 *CurrentDirectoryPath;
+    EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *FsProtocol;    //Simple File System Protocol that current working on
+    EFI_FILE_PROTOCOL *RootHandle;                  //root directory handler
+
+    WorkingDirectory CurrentPath;           //give handler and Path string for Directory
+    WorkingDirectory SavedPath;             //give handler and Path string for Directory
+
+    WorkingFile CurrentFile;                //give EFI_FILE_INFO and PATH string for file
     
     /** This is Part of _Boot_File_System_Utility or BFSU, 
      * Get EFI_SIMPLE_FILE_SYSTEM_PROTOCOL GUID and current directory pointer
@@ -29,9 +52,7 @@ struct _Boot_File_System_Utility {
      */
     EFI_STATUS (*ProtocolHeader)(
         IN BFSU *This,
-        OUT EFI_SIMPLE_FILE_SYSTEM_PROTOCOL **FsProtocol,
-        OUT EFI_FILE_PROTOCOL **RootHandle,
-        OUT EFI_STATUS *Status
+        OUT EFI_FILE_PROTOCOL **RootHandle
     );
 
     /** This is Part of _Boot_File_System_Utility or BFSU, 
@@ -65,7 +86,7 @@ struct _Boot_File_System_Utility {
      * @param FilePath file name, can accept Path
      * @return When Error, return EFI_ERROR, when Normal, return EFI_SUCCESS
      */
-    EFI_STATUS (*FileOpen)(
+    EFI_STATUS (*OpenFile)(
         IN BFSU *This,
         IN CHAR16 *FilePath
     );
@@ -77,7 +98,7 @@ struct _Boot_File_System_Utility {
      * @param StringToWriteBack the sectance that want to write.
      * @return When Error, return EFI_ERROR, when Normal, return EFI_SUCCESS
      */
-    EFI_STATUS (*SimpleFileWriteBack)(
+    EFI_STATUS (*WriteBackFile)(
         IN BFSU *This,
         IN CHAR16 *FilePath,
         IN CHAR16 *StringToWriteBack
@@ -108,7 +129,7 @@ struct _Boot_File_System_Utility {
 
 ///////////////////////////Inline Method//////////////////////////////
 
-EFI_STATUS BFSU_ProtocolHeader(BFSU *This, EFI_SIMPLE_FILE_SYSTEM_PROTOCOL **FsProtocol, EFI_FILE_PROTOCOL **RootHandle, EFI_STATUS *Status);
+EFI_STATUS BFSU_ProtocolHeader(IN BFSU *This, OUT EFI_FILE_PROTOCOL **RootHandle);
 
 // fileName Handle Flags
 #define FILE_CHECK_NORMAL 0x00
@@ -116,17 +137,23 @@ EFI_STATUS BFSU_ProtocolHeader(BFSU *This, EFI_SIMPLE_FILE_SYSTEM_PROTOCOL **FsP
 #define FILE_CHECK_INVAILD_NAME 0x02
 #define FILE_CHECK_TOO_LONG 0x04
 
-EFI_STATUS BFSU_FileNameChecker(BFSU *This, CHAR16 *FileName, UINTN FileNameLength);
+EFI_STATUS BFSU_FileNameChecker(IN BFSU *This, IN CHAR16 *FileName, IN UINTN FileNameLength);
 
 
 ///////////////////////////file handler//////////////////////////////
 
 EFI_STATUS BFSU_MakeFile(IN BFSU *This, IN CHAR16 *FileName);
 
+EFI_STATUS BFSU_ReadFile(IN BFSU *This, IN CHAR16 *FileName);
+
+EFI_STATUS BFSU_WriteBackFile(IN BFSU *This, IN CHAR16 *FileName, IN CHAR16 *StringToWriteBack);
+
 ////////////////////////directory handler///////////////////////////
 
-EFI_STATUS BFSU_GotoDirectory(BFSU *This, CHAR16 *DirectoryPath);
+EFI_STATUS BFSU_MakeDirectory(IN BFSU *This, IN CHAR16 *DirectoryPath);
 
-EFI_STATUS BFSU_InitializeLib(BFSU *This);
+EFI_STATUS BFSU_GotoDirectory(IN BFSU *This, IN CHAR16 *DirectoryPath);
+
+EFI_STATUS BFSU_InitializeLib(IN BFSU *This);
 
 #endif

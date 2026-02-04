@@ -2,25 +2,29 @@
 
 ///////////////////////////Inline Method//////////////////////////////
 
-EFI_STATUS BFSU_ProtocolHeader(BFSU *This, EFI_SIMPLE_FILE_SYSTEM_PROTOCOL **FsProtocol, EFI_FILE_PROTOCOL **RootHandle, EFI_STATUS *Status) {
-    *Status = gBS->LocateProtocol(&gEfiSimpleFileSystemProtocolGuid, NULL, (VOID**)FsProtocol);
+EFI_STATUS BFSU_ProtocolHeader(IN BFSU *This, OUT EFI_FILE_PROTOCOL **RootHandle) {
+    EFI_STATUS Status;
+    Status = gBS->LocateProtocol(&gEfiSimpleFileSystemProtocolGuid, NULL, (VOID*)&This->FsProtocol);
     
-    if (EFI_ERROR(*Status)) {
+    if (EFI_ERROR(Status)) {
         Print(L"Cannot find Protocol.\r\n");
-        return *Status;
+        return Status;
     }
 
-    *Status = (*FsProtocol)->OpenVolume((*FsProtocol), RootHandle);
+    Status = This->FsProtocol->OpenVolume((This->FsProtocol), RootHandle);
 
-    if (EFI_ERROR(*Status)) {
+    if (EFI_ERROR(Status)) {
         Print(L"Unknown Error occur during open the volume.\r\n");
-        return *Status;
+        return Status;
     }
+
+    Status = This->RootHandle->Open(This->RootHandle, &This->SavedPath.handler, L".", EFI_FILE_MODE_WRITE | EFI_FILE_MODE_READ, EFI_FILE_DIRECTORY);
+    if (EFI_ERROR(Status)) return Status;
 
     return EFI_SUCCESS;
 }
 
-EFI_STATUS BFSU_FileNameChecker(BFSU *This, CHAR16 *FileName, UINTN FileNameLength) {
+EFI_STATUS BFSU_FileNameChecker(IN BFSU *This, IN CHAR16 *FileName, IN UINTN FileNameLength) {
     if(FileNameLength > 256) return FILE_CHECK_TOO_LONG;
     if(FileName[0] == L'\0') return FILE_CHECK_VOID;
     if(FileName[FileNameLength - 1] == L'.') return FILE_CHECK_INVAILD_NAME;
@@ -35,8 +39,8 @@ EFI_STATUS BFSU_FileNameChecker(BFSU *This, CHAR16 *FileName, UINTN FileNameLeng
             case L'>':
             case L':':
             case L'\"':
-            case L'/':
-            case L'\\':
+            //case L'/':
+            //case L'\\':
             case L'|':
             case L'?':
             case L'*':
@@ -50,35 +54,122 @@ EFI_STATUS BFSU_FileNameChecker(BFSU *This, CHAR16 *FileName, UINTN FileNameLeng
 ///////////////////////////file handler//////////////////////////////
 
 EFI_STATUS BFSU_MakeFile(IN BFSU *This, IN CHAR16 *FileName) {
-    EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *FsProtocol;    //FileSystemProtocol
-    EFI_FILE_PROTOCOL *RootHandle = NULL;  //root directory handle
     EFI_STATUS Status;
-
-    BFSU_ProtocolHeader(This, &FsProtocol, &RootHandle, &Status);
     
-    EFI_FILE_PROTOCOL *FileHandle = NULL;  //current file handle
-    Status = RootHandle->Open(RootHandle, &FileHandle, FileName, EFI_FILE_MODE_CREATE | EFI_FILE_MODE_WRITE | EFI_FILE_MODE_READ, 0);
+    Status = This->SavedPath.handler->Open(This->SavedPath.handler, &This->CurrentPath.handler, FileName,
+                                    EFI_FILE_MODE_CREATE | EFI_FILE_MODE_WRITE | EFI_FILE_MODE_READ, 0);
 
-    if (EFI_ERROR(Status)) {
-        RootHandle->Close(RootHandle);
-        return Status;
+    if (EFI_ERROR(Status)) return Status;
+
+    Print(L"Make File %s in %s\r\n", FileName, This->SavedPath.absolute_path);
+    This->CurrentPath.handler->Close(This->CurrentPath.handler);
+    return EFI_SUCCESS;
+}
+
+EFI_STATUS BFSU_ReadFile(IN BFSU *This, IN CHAR16 *FileName) {
+    EFI_STATUS Status;
+    
+    Status = This->SavedPath.handler->Open(This->SavedPath.handler, &This->CurrentPath.handler, FileName, EFI_FILE_MODE_READ, 0);
+
+    if (EFI_ERROR(Status)) return Status;
+
+    Print(L"Open File %s in %s\r\n", FileName, This->SavedPath.absolute_path);
+
+    EFI_FILE_INFO *FileInfo;
+    UINTN         BufferSize;
+
+    Status = This->CurrentPath.handler->GetInfo(This->CurrentPath.handler, &gEfiFileInfoGuid, &BufferSize, NULL);
+
+    if (Status == EFI_BUFFER_TOO_SMALL) {
+        FileInfo = AllocateZeroPool(BufferSize);
+        Status = This->CurrentPath.handler->GetInfo(This->CurrentPath.handler, &gEfiFileInfoGuid, &BufferSize, FileInfo);
     }
+    This->CurrentFile.file_info = FileInfo;
+    This->CurrentFile.DataSize = This->CurrentFile.file_info->FileSize;
+    This->CurrentFile.Data = AllocateZeroPool(This->CurrentFile.DataSize);
 
-    Print(L"Make File %s in %s\r\n", FileName, This->CurrentDirectoryPath);
-    FileHandle->Close(FileHandle);
-    RootHandle->Close(RootHandle);
+    Print(L"%s\r\n", This->CurrentPath.handler->Read(This->CurrentPath.handler, &This->CurrentFile.DataSize, This->CurrentFile.Data));
+
+    This->CurrentPath.handler->Close(This->CurrentPath.handler);
+    //임시 종료구간
+    FreePool(This->CurrentFile.file_info);
+    FreePool(This->CurrentFile.Data);
+    This->CurrentFile.DataSize = 0;
+    This->CurrentFile.absolute_path = L'\0';
+
+    return EFI_SUCCESS;
+}
+
+EFI_STATUS BFSU_WriteBackFile(IN BFSU *This, IN CHAR16 *FileName, IN CHAR16 *StringToWriteBack) {
+    EFI_STATUS Status;
+    
+    Status = This->SavedPath.handler->Open(This->SavedPath.handler, &This->CurrentPath.handler, FileName, EFI_FILE_MODE_WRITE | EFI_FILE_MODE_READ, 0);
+
+    if (EFI_ERROR(Status)) return Status;
+
+    Print(L"Open Writtable File %s in %s\r\n", FileName, This->CurrentPath.absolute_path);
+
+    //do something
+
+    This->CurrentPath.handler->Close(This->CurrentPath.handler);
     return EFI_SUCCESS;
 }
 
 ////////////////////////directory handler///////////////////////////
 
-EFI_STATUS BFSU_GotoDirectory(BFSU *This, CHAR16 *DirectoryPath);
+EFI_STATUS BFSU_MakeDirectory(IN BFSU *This, IN CHAR16 *DirectoryPath) {
+    EFI_STATUS Status;
 
-EFI_STATUS BFSU_InitializeLib(BFSU *This) {
-    This->CurrentDirectoryPath = L"~";
+    This->CurrentPath.handler = NULL;
+    Status = This->SavedPath.handler->Open(This->SavedPath.handler, &This->CurrentPath.handler, DirectoryPath,
+                                    EFI_FILE_MODE_CREATE | EFI_FILE_MODE_WRITE | EFI_FILE_MODE_READ, EFI_FILE_DIRECTORY);
+
+    if (EFI_ERROR(Status)) return Status;
+
+    Print(L"Make Directory in the Directory : %s\r\n", This->SavedPath.absolute_path);
+    This->CurrentPath.handler->Close(This->CurrentPath.handler);
+    return EFI_SUCCESS;
+}
+
+EFI_STATUS BFSU_GotoDirectory(IN BFSU *This, IN CHAR16 *DirectoryPath) {
+    EFI_STATUS Status;
+    CHAR16 *CurrentPath_Str;
+
+    This->CurrentPath.handler = NULL;
+    Status = This->SavedPath.handler->Open(This->SavedPath.handler, &This->CurrentPath.handler, DirectoryPath,
+                                    EFI_FILE_MODE_WRITE | EFI_FILE_MODE_READ, EFI_FILE_DIRECTORY);
+
+    Status = FileHandleGetFileName(This->CurrentPath.handler, &CurrentPath_Str);
+    if (EFI_ERROR(Status)) return Status;
+
+    if(This->CurrentPath.absolute_path == NULL) FreePool(This->CurrentPath.absolute_path);
+    This->CurrentPath.absolute_path = CurrentPath_Str;
+
+    Print(L"Currently in the Directory : %s\r\n", This->CurrentPath.absolute_path);
+    This->SavedPath.handler->Close(This->SavedPath.handler);
+    This->SavedPath.handler = This->CurrentPath.handler;
+    This->CurrentPath.handler = NULL;
+    return EFI_SUCCESS;
+}
+
+EFI_STATUS BFSU_InitializeLib(IN BFSU *This) {
+    EFI_STATUS Status;
+
+    This->CurrentPath.handler = NULL;
+    This->CurrentPath.absolute_path = L"\\";
+    This->SavedPath.handler = NULL;
+    This->SavedPath.absolute_path = L"\\";
+
     This->ProtocolHeader = BFSU_ProtocolHeader;
     This->FileNameCheck = BFSU_FileNameChecker;
     This->MakeFile = BFSU_MakeFile;
+    This->OpenFile = BFSU_ReadFile;
+    This->WriteBackFile = BFSU_WriteBackFile;
+    This->MakeDirectory = BFSU_MakeDirectory;
+    This->GotoDirectory = BFSU_GotoDirectory;
+
+    Status = BFSU_ProtocolHeader(This, &This->RootHandle);
+    if(EFI_ERROR(Status)) return Status;
 
     return EFI_SUCCESS;
 }

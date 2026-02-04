@@ -1,8 +1,11 @@
 #include <Uefi.h>
 #include <Library/UefiLib.h>
+#include <Library/BaseLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/MemoryAllocationLib.h>
 #include <Protocol/SimpleFileSystem.h>
+#include <Library/FileHandleLib.h>
+#include <Guid/FileInfo.h>
 
 
 //EDK2 is C99 base.
@@ -86,7 +89,7 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* sysTab
             if(input_buffer[3] == 0x20) {       //0x20 == space
                 CHAR16 TempFileNameContainer[256];
                 EFI_STATUS Status;
-                StrCatS(TempFileNameContainer, MAX_BUFFER_SIZE, (input_buffer + 4));
+                StrCpyS(TempFileNameContainer, MAX_BUFFER_SIZE, (input_buffer + 4));
                 if(EFI_ERROR(Status)) {
                     Print(L"Argument Error While reading the Name.\r\n");
                     goto CAT_END;
