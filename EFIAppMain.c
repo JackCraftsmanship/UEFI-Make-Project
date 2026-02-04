@@ -38,16 +38,34 @@ EFI_STATUS EFIAPI UefiEntry(IN EFI_HANDLE imgHandle, IN EFI_SYSTEM_TABLE* sysTab
     Print(L"Initializing Success, Input Activate : \r\n");
 
     while (TRUE) {
-        //CHAR16 input_buffer[MAX_BUFFER_SIZE];
         Print(TYPOLOCATION);
         shell.ReadLine(&shell, input_buffer, MAX_BUFFER_SIZE);
 
-        //reset command here;
+        if(!StrnCmp(input_buffer, L"reset", 5)) {
+            EFI_STATUS Status;
+            InitializeListHead(TokenArrayEntry);
+            
+            Status = SBU_TokenHandler(&shell, input_buffer + 5, 1, TokenArrayEntry);
+            if(EFI_ERROR(Status)) {
+                Print(L"Token Parsing FAILED with code %d\r\n", Status);
+                Token_List_Destructor(TokenArrayEntry);
+            }
+            CommandToken *TokenParsed;
+            LIST_ENTRY *Link_Entered;
+
+            for (Link_Entered = GetFirstNode (TokenArrayEntry); !IsNull (TokenArrayEntry, Link_Entered); 
+                    Link_Entered = GetNextNode (TokenArrayEntry, Link_Entered)) {
+                TokenParsed = BASE_CR(Link_Entered, CommandToken, Link);
+                shell.RebootCommand(&shell, TokenParsed->Token);
+            }
+            TokenParsed = NULL;
+            Link_Entered = NULL;
+            Token_List_Destructor(TokenArrayEntry);
+        }
 
         if(!StrnCmp(input_buffer, L"test", 4)) {
-            //LIST_ENTRY *TokenArrayEntry;
-            InitializeListHead(TokenArrayEntry);
             EFI_STATUS Status;
+            InitializeListHead(TokenArrayEntry);
 
             Status = SBU_TokenHandler(&shell, input_buffer + 4, 0, TokenArrayEntry);
             Print(L"\r\n");

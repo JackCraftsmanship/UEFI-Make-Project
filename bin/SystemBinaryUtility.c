@@ -86,11 +86,11 @@ EFI_STATUS SBU_Readline(IN SBU *This, OUT CHAR16 *Buffer, IN UINTN BufferSize) {
 EFI_STATUS SBU_ReBoot(IN SBU *This, IN CHAR16 *Option) {
     EFI_RESET_TYPE resetType;
 
-    if(!StrCmp(Option, L"-c") || !StrCmp(Option, L"--cold")) {
+    if(!StrCmp(Option, L"c") || !StrCmp(Option, L"cold")) {
         Print(L"Reset with device shutdown.");
         resetType = EfiResetCold;
     }
-    else if(!StrCmp(Option, L"-w") || !StrCmp(Option, L"--warm")) {
+    else if(!StrCmp(Option, L"w") || !StrCmp(Option, L"warm")) {
         Print(L"Reset without device shutdown");
         resetType = EfiResetWarm;
     } else {
@@ -106,7 +106,6 @@ EFI_STATUS SBU_Shutdown(IN SBU *This) {
     gST->RuntimeServices->ResetSystem(EfiResetShutdown, EFI_SUCCESS, 0, NULL);
     return EFI_SUCCESS;
 }
-
 
 /*
 토큰을 사용자 지정 연결 리스트 객체로 만들어서 관리하는 것이 적합.
@@ -382,77 +381,6 @@ EFI_STATUS Token_OptionHandler(IN CHAR16 *SourceBuffer, IN OUT CommandToken *Tok
 }
 
 
-EFI_STATUS SBU_TokenAssembler(IN SBU *This, IN CommandToken *TokenArray, IN UINTN TokenMaxAmount, OUT CommandContainer *TokenContainer) {
-    if(TokenMaxAmount) return RETURN_INVALID_PARAMETER;
-    if(TokenArray == NULL || TokenContainer == NULL) return RETURN_INVALID_PARAMETER;
-    if(TokenArray[0].TokenType != TOKENTYPE_COMMAND) return RETURN_INVALID_PARAMETER;
-
-    UINTN ArgumentCount = 0;
-    UINTN OptionCount = 0;
-    EFI_STATUS Status;
-
-    //check token type except : COMMAND
-    for(UINTN i = 0; i < TokenMaxAmount; i++) {
-        if(TokenArray[i].TokenType == TOKENTYPE_ARGUMENT) ArgumentCount++;
-        if(TokenArray[i].TokenType == TOKENTYPE_OPTION_SHORT ||
-            TokenArray[i].TokenType == TOKENTYPE_OPTION_LONG) OptionCount++;
-    }
-
-    //allocate heap, this will NOT be free in this function (which is OUT pointer)
-    ArgumentToken *TempArgument = AllocateZeroPool(ArgumentCount);
-    OptionToken *TempOption = AllocateZeroPool(OptionCount);
-
-    if(TempArgument == NULL || TempOption == NULL) return RETURN_ABORTED;
-
-    for(UINTN i = 0; i < ArgumentCount; i++) {
-        Status = ArgumentAssembler(TokenArray, TokenMaxAmount, ArgumentCount, TempArgument);
-        if(EFI_ERROR(Status)) return Status;
-    }
-
-    for(UINTN i = 0; i < OptionCount; i++) {
-        //do function
-    }
-
-    //set TokenContainer
-    TokenContainer->CommandName = TokenArray[0].Token;
-    TokenContainer->OptionArray = TempOption;
-    TokenContainer->OptionAmount = OptionCount;
-    TokenContainer->ArgumentArray = TempArgument;
-    TokenContainer->ArgumentAmount = ArgumentCount;
-
-    TempArgument = NULL;
-    TempOption = NULL;
-    return RETURN_SUCCESS;
-}
-
-EFI_STATUS ArgumentAssembler(IN CommandToken *TokenArray, IN UINTN TokenMaxAmount, IN UINTN ArgumentCount, OUT ArgumentToken *ArgumentArray) {
-    if(TokenMaxAmount || ArgumentCount) return RETURN_INVALID_PARAMETER;
-    if(TokenArray == NULL || ArgumentArray == NULL) return RETURN_INVALID_PARAMETER;
-    EFI_STATUS Status;
-
-    for(UINTN i = 0; i < TokenMaxAmount; i++) {
-        if(TokenArray[i].TokenType == TOKENTYPE_ARGUMENT) {
-            ArgumentArray[i].ArgumentType = 1;  //always 1 when it is in command line
-            ArgumentArray[i].TokenPosition = TokenArray[i].TokenPosition;
-            Status = StrCpyS(ArgumentArray[i].Value, MAX_TOKEN_STRING, TokenArray[i].Token);
-            if(EFI_ERROR(Status)) return Status;
-            if(ArgumentCount == i) break;
-        }
-    }
-    return RETURN_SUCCESS;
-}
-
-EFI_STATUS OptionAssembler(IN CommandToken *TokenArray, IN UINTN TokenMaxAmount, OUT UINTN OptionCount, OUT ArgumentToken *OptionArray) {
-    if(TokenArray == NULL || OptionArray == NULL) return RETURN_INVALID_PARAMETER;
-    if(TokenMaxAmount || OptionCount) return RETURN_INVALID_PARAMETER;
-    //EFI_STATUS Status;
-
-    //do something
-
-    return RETURN_SUCCESS;
-}
-
-
 EFI_STATUS SBU_WhoamI(IN SBU *This) {
     Print(L"This shell is part of Custom EFI Boot Service\r\nMade by Jack::ZeroCP\r\n");
     return EFI_SUCCESS;
@@ -465,7 +393,6 @@ EFI_STATUS SBU_InitializeLib(IN SBU *This)
     This->ShutdownCommand = SBU_Shutdown;
     This->WhoamI = SBU_WhoamI;
     This->TokenHandler = SBU_TokenHandler; 
-    This->TokenAssembler = SBU_TokenAssembler;
 
     return EFI_SUCCESS;
 }

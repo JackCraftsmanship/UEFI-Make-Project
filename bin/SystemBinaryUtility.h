@@ -176,22 +176,6 @@ struct _System_Binary_Utility {
     );
 
     /** This is Part of _System_Binary_Utility or SBU, 
-     * Internal Option Assembler for handle Option in command.
-     * @note Currently not vaild
-     * @param This self
-     * @param TokenArray The Source TokenArray, it is not parsing the CommandToken
-     * @param TokenMaxAmount Max amount tokens that Token Array can handle
-     * @param TokenContainer Assembled Token Container that ready to excute command
-     * @return When Error, return EFI_ERROR, when Normal, return EFI_SUCCESS
-     */
-    EFI_STATUS (*TokenAssembler)(
-        IN SBU *This,
-        IN CommandToken *TokenArray,
-        IN UINTN TokenMaxAmount,
-        OUT CommandContainer *TokenContainer
-    );
-
-    /** This is Part of _System_Binary_Utility or SBU, 
      * Who Am I String Printer. Suitable for testing BootService.
      * @param This self
      * @return When Error, return EFI_ERROR, when Normal, return EFI_SUCCESS
@@ -212,10 +196,6 @@ EFI_STATUS Token_ArgumentHandler(IN CHAR16 *SourceBuffer, IN OUT CommandToken *T
 EFI_STATUS Token_OptionHandler(IN CHAR16 *SourceBuffer, IN OUT CommandToken *Token, OUT UINTN *Next, IN UINTN ArgumentType);
 
 VOID Token_List_Destructor(IN LIST_ENTRY *ListEntryPointer);
-
-EFI_STATUS SBU_TokenAssembler(IN SBU *This, IN CommandToken *TokenArray, IN UINTN TokenMaxAmount, OUT CommandContainer *TokenContainer);
-EFI_STATUS ArgumentAssembler(IN CommandToken *TokenArray, IN UINTN TokenMaxAmount, IN UINTN ArgumentCount, OUT ArgumentToken *ArgumentArray);
-EFI_STATUS OptionAssembler(IN CommandToken *TokenArray, IN UINTN TokenMaxAmount, IN UINTN OptionCount, OUT ArgumentToken *OptionArray);
 
 EFI_STATUS SBU_WhoamI(IN SBU *This);
 
