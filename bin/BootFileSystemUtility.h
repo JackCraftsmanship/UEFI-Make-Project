@@ -9,6 +9,8 @@
 #include <Library/FileHandleLib.h>
 #include <Guid/FileInfo.h>
 
+#include <Library/DebugLib.h>
+
 /** This is part of _Boot_File_System_Utility, which is also can use other place.
  * It will give the store place for Directory
  */

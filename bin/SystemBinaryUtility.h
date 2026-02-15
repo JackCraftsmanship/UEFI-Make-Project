@@ -7,6 +7,8 @@
 #include <Library/MemoryAllocationLib.h>
 #include <Library/BaseLib.h>
 
+#include <Library/DebugLib.h>
+
 #define ShortOption "-"
 #define LongOption "--"
 #define MAX_TOKEN_STRING 256
@@ -172,7 +174,7 @@ struct _System_Binary_Utility {
         IN SBU *This,
         IN CHAR16 *SourceBuffer,
         IN UINTN TokenMaxAmount,
-        IN OUT LIST_ENTRY *TokenArrayPointer
+        IN OUT LIST_ENTRY **TokenArrayPointer
     );
 
     /** This is Part of _System_Binary_Utility or SBU, 
@@ -191,7 +193,7 @@ EFI_STATUS SBU_ReBoot(IN SBU *This, IN CHAR16 *Option);
 
 EFI_STATUS SBU_Shutdown(IN SBU *This);
 
-EFI_STATUS SBU_TokenHandler(IN SBU *This, IN CHAR16 *SourceBuffer, IN UINTN TokenMaxAmount, IN OUT LIST_ENTRY *TokenArrayPointer);
+EFI_STATUS SBU_TokenHandler(IN SBU *This, IN CHAR16 *SourceBuffer, IN UINTN TokenMaxAmount, IN OUT LIST_ENTRY **TokenArrayPointer);
 EFI_STATUS Token_ArgumentHandler(IN CHAR16 *SourceBuffer, IN OUT CommandToken *Token, OUT UINTN *Next, IN UINTN ArgumentType);
 EFI_STATUS Token_OptionHandler(IN CHAR16 *SourceBuffer, IN OUT CommandToken *Token, OUT UINTN *Next, IN UINTN ArgumentType);
 

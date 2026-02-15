@@ -113,10 +113,10 @@ EFI_STATUS SBU_Shutdown(IN SBU *This) {
  -> EDK2 제공 이중 환형 연결 리스트 사용할 것임.
 */
 
-EFI_STATUS SBU_TokenHandler(IN SBU *This, IN CHAR16 *SourceBuffer, IN UINTN TokenMaxAmount, IN OUT LIST_ENTRY *TokenArrayPointer) {
+EFI_STATUS SBU_TokenHandler(IN SBU *This, IN CHAR16 *SourceBuffer, IN UINTN TokenMaxAmount, IN OUT LIST_ENTRY **TokenArrayPointer) {
     if(StrSize(SourceBuffer) == 0) return RETURN_BAD_BUFFER_SIZE;
     if(SourceBuffer[0] == L'\0') return RETURN_BAD_BUFFER_SIZE;
-    //if(TokenArrayPointer != NULL) return RETURN_ACCESS_DENIED;      //can occure Dangling pointer problem
+    if (TokenArrayPointer == NULL) return RETURN_INVALID_PARAMETER;
 
     UINTN StrFront = 0;
     UINTN CharLength = 0;
@@ -125,7 +125,11 @@ EFI_STATUS SBU_TokenHandler(IN SBU *This, IN CHAR16 *SourceBuffer, IN UINTN Toke
     UINT8 TokenTypeFlag = 0;
     BOOLEAN StartParsingFlag = FALSE;       //toggler
 
-    LIST_ENTRY *ListInitHead;
+    LIST_ENTRY *ListInitHead = AllocateZeroPool(sizeof(LIST_ENTRY));
+    if(ListInitHead == NULL) {
+        DEBUG((DEBUG_ERROR, "(Error) : Cannot Allocate Memory\r\n"));
+        return RETURN_OUT_OF_RESOURCES;
+    }
     InitializeListHead(ListInitHead);
 
     CommandToken *TokenNode;
@@ -133,9 +137,9 @@ EFI_STATUS SBU_TokenHandler(IN SBU *This, IN CHAR16 *SourceBuffer, IN UINTN Toke
 
     for(; StrFront < StrLength; StrFront++) {
         //CK string
-        if(SourceBuffer[StrFront] == L'\0') return RETURN_SUCCESS;
+        if(SourceBuffer[StrFront] == L'\0') break;
         if(SourceBuffer[StrFront] == L' ') {
-            if (SourceBuffer[StrFront + 1] == L'\0') return RETURN_SUCCESS;
+            if (SourceBuffer[StrFront + 1] == L'\0') break;
             if (SourceBuffer[StrFront + 1] == L'=') goto SKIP_FOR_1;
             StrFront++;     //skip L' '
             if(SourceBuffer[StrFront] == L'-') {
@@ -160,7 +164,7 @@ EFI_STATUS SBU_TokenHandler(IN SBU *This, IN CHAR16 *SourceBuffer, IN UINTN Toke
             TokenTypeFlag = TOKENTYPE_ADDITION_ARGUMENT;     //identify Additional argument
             StartParsingFlag = TRUE;
         }
-        else if(TokenMaxAmount != 0 && index >= TokenMaxAmount) return RETURN_SUCCESS;
+        else if(TokenMaxAmount != 0 && index >= TokenMaxAmount) break;
         else return RETURN_INVALID_PARAMETER;
 
         //start parsing token when enable : StartParsingFlag
@@ -169,14 +173,14 @@ EFI_STATUS SBU_TokenHandler(IN SBU *This, IN CHAR16 *SourceBuffer, IN UINTN Toke
             TokenNode = AllocateZeroPool(sizeof(CommandToken));
             if(TokenNode == NULL) return RETURN_LOAD_ERROR;
 
-            Print(L"Token Parsing start : index = %d\r\n", index);
+            DEBUG((DEBUG_INFO, "Token Parsing start : index = %d\r\n", index));
             if(TokenTypeFlag == TOKENTYPE_OPTION_SHORT) {
                 Status = Token_OptionHandler(SourceBuffer + StrFront, TokenNode, &CharLength, TokenTypeFlag);
                 if(EFI_ERROR(Status)) goto TOKENHANDLER_FAILSAFE;
                 if(CharLength < 2) goto TOKENHANDLER_FAILSAFE;
 
                 StrFront += CharLength;
-                Print(L"Parsing End with Length : %d\r\n Next Char : \'%c\'\r\n", CharLength, SourceBuffer[StrFront]);
+                DEBUG((DEBUG_INFO, "Parsing End with Length : %d\r\n Next Char : \'%c\'\r\n", CharLength, SourceBuffer[StrFront]));
                 StrFront--;
 
                 for(UINTN i = 0; i < CharLength - 1; i++) {
@@ -184,7 +188,9 @@ EFI_STATUS SBU_TokenHandler(IN SBU *This, IN CHAR16 *SourceBuffer, IN UINTN Toke
                     if(TempToken == NULL) return RETURN_OUT_OF_RESOURCES;
 
                     TempToken->Signature = C_Token_Signature;
-                    TempToken->TokenKey = TokenNode->TokenKey;
+                    TempToken->TokenKey = AllocateZeroPool(sizeof(CHAR16));
+                    if(TempToken->TokenKey == NULL) return RETURN_OUT_OF_RESOURCES;
+                    TempToken->TokenKey[0] = L'\0';         //cause handler doesn't use this
                     TempToken->TokenPosition = index;
                     TempToken->Token = AllocateZeroPool(sizeof(CHAR16) * 2);
                     if(TempToken->Token == NULL) return RETURN_OUT_OF_RESOURCES;
@@ -192,7 +198,7 @@ EFI_STATUS SBU_TokenHandler(IN SBU *This, IN CHAR16 *SourceBuffer, IN UINTN Toke
                     TempToken->Token[1] = L'\0';
                     TempToken->TokenType = TOKENTYPE_OPTION_SHORT;
 
-                    Print(L"Token Separated : %d, %s\r\n", TempToken->TokenPosition, TempToken->Token);
+                    DEBUG((DEBUG_INFO, "Token Separated : %d, %s\r\n", TempToken->TokenPosition, TempToken->Token));
 
                     InsertTailList(ListInitHead, &TempToken->Link);
                     index++;
@@ -206,7 +212,7 @@ EFI_STATUS SBU_TokenHandler(IN SBU *This, IN CHAR16 *SourceBuffer, IN UINTN Toke
             if(EFI_ERROR(Status)) goto TOKENHANDLER_FAILSAFE;
 
             StrFront += CharLength;
-            Print(L"Parsing End with : %d\r\n Next Char : \'%c\'\r\n", StrFront, SourceBuffer[StrFront]);
+            DEBUG((DEBUG_INFO, "Parsing End with : %d\r\n Next Char : \'%c\'\r\n", StrFront, SourceBuffer[StrFront]));
             StrFront--;
             TokenNode->TokenPosition = index;
             TokenNode->Signature = C_Token_Signature;
@@ -218,12 +224,12 @@ EFI_STATUS SBU_TokenHandler(IN SBU *This, IN CHAR16 *SourceBuffer, IN UINTN Toke
         }
     }
 
-    TokenArrayPointer = ListInitHead;
+    *TokenArrayPointer = ListInitHead;
     ListInitHead = NULL;
     return RETURN_SUCCESS;
 
 TOKENHANDLER_FAILSAFE:
-    Print(L"Error Occured... Activate FailSafe : Delete All\r\n");
+    DEBUG((DEBUG_INFO, "Error : TokenParsing Failed"));
     Token_List_Destructor(ListInitHead);
     if(TokenNode != NULL) {
         if (TokenNode->Token != NULL) {
@@ -253,15 +259,18 @@ VOID Token_List_Destructor(IN LIST_ENTRY *ListEntryPointer) {
         NextLink = GetNextNode (ListEntryPointer, CurrentLink);
         Entry = BASE_CR (CurrentLink, CommandToken ,Link);
 
+        DEBUG((DEBUG_INFO, "Delete Token : %s\r\n", Entry->Token));
         if (Entry->Token != NULL) {
         FreePool (Entry->Token);
         }
 
+        DEBUG((DEBUG_INFO, "Delete TokenKey : %s\r\n", Entry->TokenKey));
         if (Entry->TokenKey != NULL) {
         FreePool (Entry->TokenKey);
         }
 
         RemoveEntryList (CurrentLink);
+        DEBUG((DEBUG_INFO, "Delete TokenNode\r\n"));
         FreePool (Entry);
 
         CurrentLink = NextLink;
@@ -308,7 +317,7 @@ EFI_STATUS Token_ArgumentHandler(IN CHAR16 *SourceBuffer, IN OUT CommandToken *T
         }
     }
 
-    TempString = AllocateZeroPool(StringLength);
+    TempString = AllocateZeroPool(StringLength * sizeof(CHAR16));
     if(TempString == NULL) return RETURN_OUT_OF_RESOURCES;
 
     Status = StrnCpyS(TempString, StringLength, SourceBuffer + StrFront, StringLength - 1);
@@ -323,7 +332,9 @@ EFI_STATUS Token_ArgumentHandler(IN CHAR16 *SourceBuffer, IN OUT CommandToken *T
     else if(TypeOfStart == 2) StrBack += 1;     //for one L'='
     else if(TypeOfStart == 3) StrBack += 3;     //for one L'=' and two L'\"'
 
-    Token->TokenKey = L"0000\0";     //init data, but just for first.
+    Token->TokenKey = AllocateZeroPool(sizeof(CHAR16));     //init data, but just for first.
+    if(Token->TokenKey == NULL) return RETURN_OUT_OF_RESOURCES;
+    Token->TokenKey[0] = L'\0';                             //cause it just have one space for CHAR16
     Token->TokenType = ArgumentType;
     Token->TokenPosition = 0;
 
@@ -359,7 +370,7 @@ EFI_STATUS Token_OptionHandler(IN CHAR16 *SourceBuffer, IN OUT CommandToken *Tok
         }
     }
 
-    TempString = AllocateZeroPool(StringLength);
+    TempString = AllocateZeroPool(StringLength * sizeof(CHAR16));
     if(TempString == NULL) return RETURN_OUT_OF_RESOURCES;
 
     Status = StrnCpyS(TempString, StringLength, SourceBuffer + StrFront, StringLength - 1);
@@ -375,7 +386,9 @@ EFI_STATUS Token_OptionHandler(IN CHAR16 *SourceBuffer, IN OUT CommandToken *Tok
     *Next = StrBack - StrFront;
 
     Token->TokenType = ArgumentType;
-    Token->TokenKey = L"0000\0";     //init data, but just for first.
+    Token->TokenKey = AllocateZeroPool(sizeof(CHAR16));     //init data, but just for first.
+    if(Token->TokenKey == NULL) return RETURN_OUT_OF_RESOURCES;
+    Token->TokenKey[0] = L'\0';                             //cause it just have one space for CHAR16
     Token->TokenPosition = 0;
     return RETURN_SUCCESS;
 }
